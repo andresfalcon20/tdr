@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+/* --- CONFIGURACIÓN DE COLORES POR ROL --- */
+:root {
+    --bg-dark: #0f172a;
+    
+    /* Colores Específicos */
+    --color-admin: #3b82f6;   /* Azul Royal */
+    --color-tech: #10b981;    /* Verde Esmeralda */
+    --color-ext: #8b5cf6;     /* Violeta */
+
+    --glass-bg: rgba(15, 23, 42, 0.65); /* Fondo oscuro translúcido */
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --input-bg: rgba(0, 0, 0, 0.3); /* Inputs oscuros */
+}
+
+/* --- CONTENEDOR PRINCIPAL --- */
+.login-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Poppins', sans-serif;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    background-color: var(--bg-dark);
+    /* Imagen de fondo abstracta profesional */
+    background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
+}
+
+/* Capa oscura sobre la imagen para legibilidad */
+.login-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 8, 14, 0.85); /* Oscurece la imagen de fondo */
+    z-index: 1;
+}
+
+/* --- TARJETA DE CRISTAL --- */
+.glass-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 450px;
+    padding: 40px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px); /* El efecto borroso detrás */
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    transition: all 0.4s ease;
+}
+
+/* Bordes brillantes según el rol */
+.login-wrapper.admin .glass-container { border-top: 2px solid var(--color-admin); box-shadow: 0 0 40px rgba(59, 130, 246, 0.15); }
+.login-wrapper.tecnico .glass-container { border-top: 2px solid var(--color-tech); box-shadow: 0 0 40px rgba(16, 185, 129, 0.15); }
+.login-wrapper.externo .glass-container { border-top: 2px solid var(--color-ext); box-shadow: 0 0 40px rgba(139, 92, 246, 0.15); }
+
+/* --- LOGO Y TÍTULOS --- */
+.brand-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* --- NUEVO ESTILO: Logo Limpio (Sin círculo) --- */
+.logo-clean {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-clean img { 
+    width: 120px; /* Más grande para que destaque */
+    height: auto;
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.2)); /* Brillo suave alrededor */
+    transition: transform 0.3s ease;
+}
+
+.logo-clean img:hover {
+    transform: scale(1.05);
+}
+
+.brand-section h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.5px;
+}
+
+.brand-section p {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+/* --- SELECTOR DE ROLES --- */
+.role-switcher {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 5px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    gap: 5px;
+}
+
+.role-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.role-btn svg { width: 20px; height: 20px; }
+
+.role-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+
+/* Estados Activos */
+.login-wrapper.admin .role-btn.active { background: var(--color-admin); color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+.login-wrapper.tecnico .role-btn.active { background: var(--color-tech); color: white; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+.login-wrapper.externo .role-btn.active { background: var(--color-ext); color: white; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); }
+
+/* --- INPUTS ESTILIZADOS --- */
+.login-form { display: flex; flex-direction: column; gap: 20px; }
+
+.input-group { position: relative; }
+
+/* El input en sí */
+.input-group input {
+    width: 100%;
+    padding: 16px;
+    background: var(--input-bg); /* Fondo oscuro */
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s;
+    box-sizing: border-box; 
+}
+
+/* Label flotante */
+.input-group label {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    color: #94a3b8;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    background: transparent;
+    font-size: 0.95rem;
+}
+
+/* Efectos al escribir */
+.input-group input:focus,
+.input-group input:not(:placeholder-shown) {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: #fff;
+}
+
+/* Color del borde focus dinámico */
+.login-wrapper.admin .input-group input:focus { border-color: var(--color-admin); }
+.login-wrapper.tecnico .input-group input:focus { border-color: var(--color-tech); }
+.login-wrapper.externo .input-group input:focus { border-color: var(--color-ext); }
+
+/* Mover el label arriba */
+.input-group input:focus + label,
+.input-group input:not(:placeholder-shown) + label {
+    top: -10px;
+    left: 12px;
+    font-size: 0.75rem;
+    color: #fff;
+    font-weight: 600;
+    background: var(--bg-dark); 
+    padding: 0 4px;
+    border-radius: 4px;
+}
+
+/* --- BOTÓN PRINCIPAL --- */
+.submit-btn {
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.login-wrapper.admin .submit-btn { background: var(--color-admin); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+.login-wrapper.tecnico .submit-btn { background: var(--color-tech); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
+.login-wrapper.externo .submit-btn { background: var(--color-ext); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
+
+.submit-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+/* --- MENSAJES --- */
+.error-message {
+    text-align: center;
+    color: #fca5a5;
+    font-size: 0.85rem;
+    background: rgba(220, 38, 38, 0.2);
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.footer-links {
+    margin-top: 25px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.3);
+}
+
+.front{
+    font-size: 50px;
+}
+
+/* --- ANIMACIÓN --- */
+.animate-fade-in {
+    animation: fadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    opacity: 0;
+    transform: translateY(30px);
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 480px) {
+    .glass-container { padding: 30px 20px; width: 90%; }
+}

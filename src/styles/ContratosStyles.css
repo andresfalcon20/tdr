@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600&display=swap');
+
+:root {
+  --primary: #3b82f6;
+  --bg-dark: #0f172a;
+  --glass: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: 'Exo 2', sans-serif;
+}
+
+.contratos-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+}
+
+/* Header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+.page-header h1 { margin: 0; font-size: 1.8rem; }
+.page-header p { margin: 5px 0 0; color: var(--text-muted); font-size: 0.9rem; }
+
+/* Botones */
+.btn-primary {
+  background: var(--primary);
+  color: white; border: none; padding: 10px 20px;
+  border-radius: 8px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-primary:hover { background: #2563eb; }
+
+.btn-back {
+  background: none; border: none; color: var(--primary);
+  display: flex; align-items: center; gap: 5px;
+  cursor: pointer; font-size: 1rem;
+}
+
+/* Panel de Cristal */
+.glass-panel {
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* --- FILTROS EN FILA (CORREGIDO) --- */
+.filters-header {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--primary); font-weight: 600; margin-bottom: 15px;
+  text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px;
+}
+
+/* ESTA ES LA CLAVE PARA QUE ESTÉN EN FILA */
+.filters-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 Columnas iguales */
+  gap: 20px;
+  align-items: end; /* Alinea abajo si hay alturas distintas */
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.filter-item label, .form-item label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.filter-item input, .filter-item select,
+.form-item input, .form-item select {
+  width: 100%;
+  padding: 12px 15px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: white;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  box-sizing: border-box; 
+  height: 45px; /* Altura fija para uniformidad */
+}
+.filter-item input:focus, .form-item input:focus { border-color: var(--primary); }
+
+/* --- FORMULARIO NUEVO CONTRATO (2 COLUMNAS) --- */
+.form-grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2 Columnas */
+  gap: 25px; /* Espacio generoso entre campos */
+  margin-bottom: 30px;
+}
+
+.form-item {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.form-actions-right {
+  display: flex; justify-content: flex-end; /* Botón a la derecha */
+}
+
+/* --- TABLA --- */
+.table-wrapper { overflow-x: auto; }
+.contratos-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+
+.contratos-table th {
+  text-align: left; padding: 15px;
+  color: var(--text-muted); font-size: 0.85rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.contratos-table td {
+  padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.9rem; vertical-align: middle;
+}
+
+.highlight-cell { color: var(--primary); font-weight: bold; }
+.user-cell { display: flex; align-items: center; gap: 8px; }
+
+.date-cell { 
+  display: flex; align-items: center; gap: 5px; 
+  font-size: 0.85rem; color: var(--text-muted);
+}
+.date-arrow { color: var(--primary); }
+
+.status-badge {
+  padding: 4px 10px; border-radius: 20px; 
+  font-size: 0.75rem; font-weight: bold;
+}
+.status-activo { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.status-pendiente { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.status-finalizado { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+
+.btn-action {
+  background: rgba(59, 130, 246, 0.1); color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 6px 12px; border-radius: 6px;
+  cursor: pointer; display: flex; gap: 6px; align-items: center;
+  font-size: 0.8rem; transition: background 0.2s;
+}
+.btn-action:hover { background: rgba(59, 130, 246, 0.3); }
+
+/* --- VISTA DETALLE & GENERAL --- */
+.form-header-row {
+  display: flex; justify-content: flex-start; align-items: center; gap: 20px; margin-bottom: 30px;
+}
+.form-header-row h2 { margin: 0; font-size: 1.5rem; }
+
+.contract-header {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 20px;
+}
+.header-info h2 { margin: 0; color: var(--primary); }
+.subtitle { color: var(--text-muted); font-size: 1.1rem; }
+
+.header-stats { display: flex; gap: 30px; }
+.stat-box label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
+.status-text { font-weight: bold; }
+
+.progress-bar {
+  width: 150px; height: 6px; background: rgba(255,255,255,0.1);
+  border-radius: 3px; overflow: hidden; margin-bottom: 5px;
+}
+.progress-fill { height: 100%; background: var(--primary); }
+.progress-text { font-size: 0.75rem; color: var(--text-muted); }
+
+.section-title { margin: 30px 0 20px; color: var(--primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; }
+
+/* Grid de Documentos */
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.doc-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  transition: transform 0.2s, border-color 0.2s;
+  cursor: pointer; padding: 25px 15px;
+}
+.doc-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+
+.doc-icon-wrapper {
+  background: rgba(59, 130, 246, 0.1); padding: 15px;
+  border-radius: 50%; margin-bottom: 15px;
+}
+
+.doc-info h4 { margin: 0 0 5px 0; font-size: 0.95rem; }
+.doc-info p { margin: 0; font-size: 0.8rem; color: var(--text-muted); }
+
+.doc-actions {
+  margin-top: 15px; display: flex; gap: 10px; opacity: 0.5; transition: opacity 0.2s;
+}
+.doc-card:hover .doc-actions { opacity: 1; }
+
+.btn-icon-small {
+  background: rgba(255,255,255,0.1); border: none; color: white;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.btn-icon-small:hover { background: var(--primary); }
+
+/* Animaciones */
+.content-fade-in { animation: fadeIn 0.4s ease; }
+.content-slide-up { animation: slideUp 0.4s ease; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Media Query para móviles: Si es pantalla pequeña, vuelve a columnas para que no se rompa */
+@media (max-width: 768px) {
+  .filters-row { grid-template-columns: 1fr; }
+  .form-grid-2-col { grid-template-columns: 1fr; }
+}
