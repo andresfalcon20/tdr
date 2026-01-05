@@ -70,18 +70,17 @@ const LoginPage = () => {
                 );
 
                 if (userFound) {
-                    // AQUÍ VALIDAMOS LA CONTRASEÑA
-                    // Nota: Como en UsuariosPage la contraseña es temporal y no se guarda,
-                    // aceptamos cualquier contraseña que no esté vacía para simular el acceso.
+                    // AQUÍ VALIDAMOS LA CONTRASEÑA (Cualquiera no vacía sirve por ahora)
                     if (password.length > 0) {
                         loginExitoso = true;
                         nombreUsuario = userFound.nombre;
                         
-                        // DEFINIR RUTAS DE DESTINO
+                        // --- AQUÍ ESTABA EL ERROR, AHORA REDIRIGE BIEN ---
                         if (role === 'tecnico') {
-                            rutaDestino = '/tecnico'; // <--- RUTA A TecnicoPage.tsx
+                            rutaDestino = '/tecnico';
                         } else {
-                            rutaDestino = '/external-dashboard'; // Futura ruta para externos
+                            // Redirigir al nuevo Portal del Contratado
+                            rutaDestino = '/portal-contratado'; 
                         }
                     } else {
                         setError('Ingrese su contraseña');
@@ -96,11 +95,10 @@ const LoginPage = () => {
                 // Guardar sesión
                 localStorage.setItem('token', `TOKEN-${role.toUpperCase()}-${Date.now()}`);
                 localStorage.setItem('role', role);
-                localStorage.setItem('userName', nombreUsuario); // Guardamos el nombre para mostrarlo luego
+                localStorage.setItem('userName', nombreUsuario);
                 
                 navigate(rutaDestino);
             } else if (!error) {
-                // Si no hubo error específico pero falló (caso raro fallback)
                 setError('Error de autenticación');
                 setLoading(false);
             } else {

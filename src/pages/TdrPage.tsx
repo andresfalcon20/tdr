@@ -344,7 +344,8 @@ const TdrPage = () => {
                         {activeTab === 3 && (
                             <div className="form-section tdr-slide">
                                 <div className="subsection">
-                                    <h3>3.4 Actas Parciales de Pago</h3>
+                                    <h3>Actas Parciales de Pago</h3>
+                                    <br />
                                     <div className="add-item-box">
                                         <div className="grid-2">
                                             <div className="input-block">
@@ -361,7 +362,7 @@ const TdrPage = () => {
                                 </div>
 
                                 <div className="subsection">
-                                    <h3>3.5 Informe de Conformidad Final</h3>
+                                    <h3>Informe de Conformidad Final</h3>
                                     <div className="grid-2">
                                         <div className="input-block">
                                             <label>Fecha de Emisión</label>

@@ -5,7 +5,8 @@ import ContratosPage from '../pages/ContratosPage';
 import UsuariosPage from '../pages/UsuariosPage';
 import TdrPage from '../pages/TdrPage';
 import AdminPage from '../pages/AdminPage';
-import TecnicoPage from '../pages/TecnicoPage'; // <--- 1. IMPORTAR LA PÁGINA NUEVA
+import TecnicoPage from '../pages/TecnicoPage';
+import PortalContratadoPage from '../pages/PortalContratadoPage'; // <--- IMPORTANTE
 
 export const AppRoutes = () => {
   return (
@@ -20,13 +21,15 @@ export const AppRoutes = () => {
       <Route path="/usuarios" element={<UsuariosPage />} />
       <Route path="/admin" element={<AdminPage />} />
       
-      {/* --- RUTA TÉCNICO --- */}
-      {/* Esta es la ruta a la que redirige el Login cuando eres Técnico */}
+      {/* Ruta para Técnicos */}
       <Route path="/tecnico" element={<TecnicoPage />} /> 
+
+      {/* --- RUTA NUEVA PARA CONTRATADOS --- */}
+      <Route path="/portal-contratado" element={<PortalContratadoPage />} />
 
       <Route path="/alertas" element={
         <div style={{padding:'20px', color:'white', textAlign: 'center'}}>
-            <h2>🔔 Centro de Alertas y Vencimientos</h2>
+            <h2>🔔 Centro de Alertas</h2>
             <p>Aquí se mostrarán los contratos próximos a vencer.</p>
         </div>
       } />

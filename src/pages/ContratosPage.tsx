@@ -1,9 +1,26 @@
 import { useState, useEffect } from 'react';
 import { 
-User, ChevronRight, ArrowLeft, FolderOpen, Filter, Plus, Upload, Save
+  User, ArrowLeft, FolderOpen, Filter, Plus, Save, FileText, Download 
 } from 'lucide-react';
 import '../styles/ContratosStyles.css'; 
 
+// --- LISTA OFICIAL DE DIRECCIONES ---
+const DIRECCIONES_LIST = [
+    "TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN",
+    "DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA",
+    "DIRECCIÓN DE ADMINISTRACIÓN DE RECURSOS HUMANOS",
+    "DIRECCIÓN ADMINISTRATIVA FINANCIERA",
+    "DIRECCIÓN EJECUTIVA",
+    "DIRECCIÓN DE ASESORÍA JURÍDICA",
+    "DIRECCIÓN DE COMUNICACIÓN SOCIAL",
+    "DIRECCIÓN DE PLANIFICACIÓN",
+    "DIRECCIÓN DE PRONÓSTICOS Y ALERTAS",
+    "DIRECCIÓN DE ESTUDIOS, INVESTIGACIÓN Y DESARROLLO HIDROMETEOROLÓGICO",
+    "DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA",
+    "LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS"
+];
+
+// --- INTERFACES ---
 interface Contrato {
   id: number;
   numeroContrato: string;
@@ -16,33 +33,50 @@ interface Contrato {
   progreso: number;
 }
 
+interface Documento {
+    id: number;
+    contratoId: number;
+    categoria: string;
+    nombreArchivo: string;
+    fechaSubida: string;
+    estado: string;
+}
+
 const DOC_CATEGORIES = [
-  "Contrato", "Términos de Referencia (TDR)", "Informes Técnicos", 
-  "Productos Entregados", "Verificables", "Informes de Conformidad", 
-  "Informe Técnico Final", "Informe Conformidad Final", "Facturas", "Otros"
+  "Contrato", "Termino de referencia", "Informes técnicos (mensuales o por producto)", 
+  "Productos entregados", "Verificables", "Informe de conformidad mensual o por producto", 
+  "Informe técnico final", "Informe de conformidad final", "Facturas", "Otro"
 ];
 
 const ContratosPage = () => {
   const [view, setView] = useState<'list' | 'detail' | 'create'>('list');
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   
-  // 1. CARGA LOCAL (Empieza vacío si no hay nada guardado)
+  // 1. CARGA DE DATOS
   const [contratos, setContratos] = useState<Contrato[]>(() => {
       const saved = localStorage.getItem('sistema_contratos');
       return saved ? JSON.parse(saved) : []; 
   });
 
-  // 2. GUARDADO AUTOMÁTICO
+  const [allDocuments, setAllDocuments] = useState<Documento[]>([]);
+
   useEffect(() => {
       localStorage.setItem('sistema_contratos', JSON.stringify(contratos));
   }, [contratos]);
 
-  // Formulario temporal
-  const [newContrato, setNewContrato] = useState<Partial<Contrato>>({});
+  useEffect(() => {
+      if (view === 'detail') {
+          const docs = localStorage.getItem('sistema_documentos');
+          if (docs) setAllDocuments(JSON.parse(docs));
+      }
+  }, [view]);
 
+  // 2. FILTROS
   const [filters, setFilters] = useState({
     numero: '', profesional: '', admin: '', direccion: ''
   });
+
+  const [newContrato, setNewContrato] = useState<Partial<Contrato>>({});
 
   const filteredContratos = contratos.filter(c => 
     c.numeroContrato.toLowerCase().includes(filters.numero.toLowerCase()) &&
@@ -50,11 +84,6 @@ const ContratosPage = () => {
     c.adminContrato.toLowerCase().includes(filters.admin.toLowerCase()) &&
     c.direccion.toLowerCase().includes(filters.direccion.toLowerCase())
   );
-
-  const handleOpenDetail = (contrato: Contrato) => {
-    setSelectedContrato(contrato);
-    setView('detail');
-  };
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
@@ -74,75 +103,75 @@ const ContratosPage = () => {
     } as Contrato;
 
     setContratos([...contratos, contratoFinal]);
-    alert("Contrato guardado localmente");
+    alert("Contrato creado exitosamente.");
     setView('list');
     setNewContrato({});
+  };
+
+  const handleDownload = (fileName: string) => {
+      const element = document.createElement("a");
+      const file = new Blob([`Contenido: ${fileName}\n\nDocumento descargado del sistema.`], {type: 'text/plain'});
+      element.href = URL.createObjectURL(file);
+      element.download = fileName; 
+      document.body.appendChild(element); 
+      element.click();
+      document.body.removeChild(element);
   };
 
   return (
     <div className="contratos-container">
       <div className="space-background"></div>
 
-      {/* ================= VISTA LISTA ================= */}
+      {/* --- VISTA LISTA --- */}
       {view === 'list' && (
         <div className="content-fade-in">
           <header className="page-header">
             <div>
-              <h1>Gestión de Contratos de Servicios</h1>
-              <p>Administración y Documentación</p>
+              <h1>Gestión de Contratos</h1>
+              <p>Módulo de Búsqueda, Filtrado y Auditoría</p>
             </div>
             <button className="btn-primary" onClick={() => setView('create')}>
               <Plus size={18} /> Nuevo Contrato
             </button>
           </header>
 
-          <div className="filters-panel glass-panel">
+          <div className="glass-panel">
             <div className="filters-header">
-              <Filter size={16} color="#3b82f6"/>
-              <span>Búsqueda y Auditoría</span>
+              <Filter size={16} color="#3b82f6"/> <span>Búsqueda Avanzada</span>
             </div>
+            
             <div className="filters-row">
               <div className="filter-item">
                 <label>Nro. Contrato</label>
-                <input type="text" name="numero" placeholder="Ej: CTR-2025..." value={filters.numero} onChange={handleFilterChange}/>
+                <input type="text" name="numero" placeholder="Ej: CTR-2026..." value={filters.numero} onChange={handleFilterChange}/>
               </div>
               <div className="filter-item">
                 <label>Profesional</label>
-                <input type="text" name="profesional" placeholder="Buscar profesional..." value={filters.profesional} onChange={handleFilterChange}/>
+                <input type="text" name="profesional" placeholder="Nombre..." value={filters.profesional} onChange={handleFilterChange}/>
               </div>
               <div className="filter-item">
                 <label>Administrador</label>
-                <input type="text" name="admin" placeholder="Buscar administrador..." value={filters.admin} onChange={handleFilterChange}/>
+                <input type="text" name="admin" placeholder="Admin. contrato..." value={filters.admin} onChange={handleFilterChange}/>
               </div>
               <div className="filter-item">
-                <label>Dirección / Área</label>
+                <label>Dirección</label>
                 <select name="direccion" onChange={handleFilterChange} value={filters.direccion}>
-                  <option value="">Todas las Direcciones</option>
-                  <option value="TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN">TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN</option>
-                  <option value="DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA">DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA</option>
-                  <option value="DIRECCIÓN DE ADMINISTRACIÓN DE RECURSOS HUMANOS">DIRECCIÓN DE ADMINISTRACIÓN DE RECURSOS HUMANOS</option>
-                  <option value="DIRECCIÓN ADMINISTRATIVA FINANCIERA">DIRECCIÓN ADMINISTRATIVA FINANCIERA</option>
-                  <option value="DIRECCIÓN EJECUTIVA">DIRECCIÓN EJECUTIVA</option>
-                  <option value="DIRECCIÓN DE ASESORÍA JURÍDICA">DIRECCIÓN DE ASESORÍA JURÍDICA</option>
-                  <option value="DIRECCIÓN DE COMUNICACIÓN SOCIAL">DIRECCIÓN DE COMUNICACIÓN SOCIAL</option>
-                  <option value="DIRECCIÓN DE PLANIFICACIÓN">DIRECCIÓN DE PLANIFICACIÓN</option>
-                  <option value="DIRECCIÓN DE PRONÓSTICOS Y ALERTAS">DIRECCIÓN DE PRONÓSTICOS Y ALERTAS</option>
-                  <option value="DIRECCIÓN DE ESTUDIOS, INVESTIGACIÓN Y DESARROLLO HIDROMETEOROLÓGICO">DIRECCIÓN DE ESTUDIOS, INVESTIGACIÓN Y DESARROLLO HIDROMETEOROLÓGICO</option>
-                  <option value="DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA">DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA</option>
-                  <option value="LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS">LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS</option>
+                    <option value="">Todas las Direcciones</option>
+                    {DIRECCIONES_LIST.map((dir, index) => (
+                        <option key={index} value={dir}>{dir}</option>
+                    ))}
                 </select>
               </div>
             </div>
           </div>
 
-          <div className="table-wrapper glass-panel">
+          <div className="table-wrapper glass-panel" style={{padding:0}}>
             <table className="contratos-table">
               <thead>
                 <tr>
                   <th>Contrato</th>
                   <th>Profesional</th>
                   <th>Dirección</th>
-                  <th>Vigencia</th>
                   <th>Admin. Contrato</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -150,22 +179,21 @@ const ContratosPage = () => {
               </thead>
               <tbody>
                 {filteredContratos.length === 0 ? (
-                    <tr><td colSpan={7} style={{textAlign:'center', padding:'20px'}}>No hay contratos registrados.</td></tr>
+                    <tr><td colSpan={6} style={{textAlign:'center', padding:'30px', color:'#94a3b8'}}>No se encontraron contratos.</td></tr>
                 ) : (
                     filteredContratos.map((c) => (
-                    <tr key={c.id}>
-                        <td className="highlight-cell">{c.numeroContrato}</td>
-                        <td><div className="user-cell"><User size={14} /> {c.nombreProfesional}</div></td>
-                        <td style={{fontSize: '0.8rem', maxWidth: '200px'}}>{c.direccion}</td>
-                        <td><div className="date-cell"><span>{c.fechaInicio}</span><span className="date-arrow">→</span><span>{c.fechaFin}</span></div></td>
-                        <td>{c.adminContrato}</td>
-                        <td><span className={`status-badge status-${c.estado.toLowerCase()}`}>{c.estado}</span></td>
-                        <td>
-                        <button className="btn-action" onClick={() => handleOpenDetail(c)} title="Ver Expediente Digital">
-                            <FolderOpen size={16} /> Ver Expediente
-                        </button>
-                        </td>
-                    </tr>
+                        <tr key={c.id}>
+                            <td className="highlight-cell">{c.numeroContrato}</td>
+                            <td><div className="user-cell"><User size={14} /> {c.nombreProfesional}</div></td>
+                            <td style={{fontSize:'0.8rem', maxWidth:'280px', lineHeight:'1.3'}}>{c.direccion}</td>
+                            <td>{c.adminContrato}</td>
+                            <td><span className={`status-badge status-${c.estado.toLowerCase()}`}>{c.estado}</span></td>
+                            <td>
+                            <button className="btn-action" onClick={() => {setSelectedContrato(c); setView('detail');}}>
+                                <FolderOpen size={16} /> Ver Expediente
+                            </button>
+                            </td>
+                        </tr>
                     ))
                 )}
               </tbody>
@@ -174,107 +202,125 @@ const ContratosPage = () => {
         </div>
       )}
 
-      {/* ================= VISTA CREAR CONTRATO ================= */}
+      {/* --- VISTA CREAR --- */}
       {view === 'create' && (
-        <div className="form-container glass-panel content-fade-in" style={{maxWidth: '1000px', margin: '0 auto'}}>
+        <div className="glass-panel content-fade-in" style={{maxWidth: '900px', margin: '0 auto'}}>
           <div className="form-header-row">
-             <button className="btn-back" onClick={() => setView('list')}>
-                <ArrowLeft size={20} /> Cancelar
-             </button>
-             <h2>Nuevo Contrato de Servicios</h2>
+             <button className="btn-back" onClick={() => setView('list')}><ArrowLeft size={20} /> Cancelar</button>
+             <h2>Nuevo Contrato</h2>
           </div>
-
-          <form onSubmit={handleCreate} className="create-form">
+          <form onSubmit={handleCreate}>
              <div className="form-grid-2-col">
                 <div className="form-item">
-                   <label>Número de Contrato</label>
-                   <input type="text" name="numeroContrato" placeholder="Ej: CTR-2025-001" required onChange={handleInputChange}/>
+                    <label>Número de Contrato</label>
+                    <input type="text" name="numeroContrato" required onChange={handleInputChange} placeholder="Ej: CTR-2026-001"/>
                 </div>
                 <div className="form-item">
-                   <label>Profesional a Contratar</label>
-                   <input type="text" name="nombreProfesional" placeholder="Nombre completo" required onChange={handleInputChange}/>
+                    <label>Profesional (Debe coincidir con Usuario)</label>
+                    <input type="text" name="nombreProfesional" required onChange={handleInputChange} placeholder="Nombre completo"/>
                 </div>
                 <div className="form-item">
-                   <label>Administrador del Contrato</label>
-                   <input type="text" name="adminContrato" placeholder="Funcionario responsable" required onChange={handleInputChange}/>
+                    <label>Administrador del Contrato</label>
+                    <input type="text" name="adminContrato" required onChange={handleInputChange} placeholder="Funcionario responsable"/>
                 </div>
                 <div className="form-item">
-                   <label>Dirección Solicitante</label>
+                    <label>Dirección Solicitante</label>
                    <select name="direccion" required onChange={handleInputChange}>
-                      <option value="">Seleccione Dirección...</option>
-                      <option value="TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN">TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN</option>
-                      <option value="DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA">DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA</option>
-                      <option value="DIRECCIÓN DE ADMINISTRACIÓN DE RECURSOS HUMANOS">DIRECCIÓN DE ADMINISTRACIÓN DE RECURSOS HUMANOS</option>
-                      <option value="DIRECCIÓN ADMINISTRATIVA FINANCIERA">DIRECCIÓN ADMINISTRATIVA FINANCIERA</option>
-                      <option value="DIRECCIÓN EJECUTIVA">DIRECCIÓN EJECUTIVA</option>
-                      <option value="DIRECCIÓN DE ASESORÍA JURÍDICA">DIRECCIÓN DE ASESORÍA JURÍDICA</option>
-                      <option value="DIRECCIÓN DE COMUNICACIÓN SOCIAL">DIRECCIÓN DE COMUNICACIÓN SOCIAL</option>
-                      <option value="DIRECCIÓN DE PLANIFICACIÓN">DIRECCIÓN DE PLANIFICACIÓN</option>
-                      <option value="DIRECCIÓN DE PRONÓSTICOS Y ALERTAS">DIRECCIÓN DE PRONÓSTICOS Y ALERTAS</option>
-                      <option value="DIRECCIÓN DE ESTUDIOS, INVESTIGACIÓN Y DESARROLLO HIDROMETEOROLÓGICO">DIRECCIÓN DE ESTUDIOS, INVESTIGACIÓN Y DESARROLLO HIDROMETEOROLÓGICO</option>
-                      <option value="DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA">DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA</option>
-                      <option value="LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS">LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS</option>
+                      <option value="">Seleccione...</option>
+                      {DIRECCIONES_LIST.map((dir, index) => (
+                        <option key={index} value={dir}>{dir}</option>
+                      ))}
                    </select>
                 </div>
                 <div className="form-item">
-                   <label>Fecha Inicio</label>
-                   <input type="date" name="fechaInicio" required onChange={handleInputChange}/>
+                    <label>Fecha Inicio</label>
+                    <input type="date" name="fechaInicio" required onChange={handleInputChange}/>
                 </div>
                 <div className="form-item">
-                   <label>Fecha Fin</label>
-                   <input type="date" name="fechaFin" required onChange={handleInputChange}/>
+                    <label>Fecha Fin</label>
+                    <input type="date" name="fechaFin" required onChange={handleInputChange}/>
                 </div>
              </div>
              <div className="form-actions-right">
                 <button type="submit" className="btn-primary">
-                   <Save size={18} /> Guardar Contrato
+                    <Save size={18} /> Guardar Contrato
                 </button>
              </div>
           </form>
         </div>
       )}
 
-      {/* ================= VISTA DETALLE ================= */}
+      {/* --- VISTA DETALLE --- */}
       {view === 'detail' && selectedContrato && (
         <div className="detail-view content-slide-up">
           <button className="btn-back" onClick={() => setView('list')}>
             <ArrowLeft size={18} /> Volver al Listado
           </button>
+          <br />
 
           <div className="contract-header glass-panel">
             <div className="header-info">
-              <h2>{selectedContrato.numeroContrato}</h2>
-              <span className="subtitle">{selectedContrato.nombreProfesional}</span>
+                <h2>{selectedContrato.numeroContrato}</h2>
+                <span className="subtitle">{selectedContrato.nombreProfesional}</span>
             </div>
             <div className="header-stats">
-              <div className="stat-box">
-                <label>Estado</label>
-                <span className={`status-text ${selectedContrato.estado.toLowerCase()}`}>
-                  {selectedContrato.estado}
-                </span>
-              </div>
-              <div className="stat-box">
-                <label>Progreso</label>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{width: `${selectedContrato.progreso}%`}}></div>
+                <div className="stat-box">
+                    <label>Admin. Contrato</label>
+                    <span>{selectedContrato.adminContrato}</span>
                 </div>
-                <span className="progress-text">{selectedContrato.progreso}%</span>
-              </div>
+                <div className="stat-box">
+                    <label>Estado</label>
+                    <span className={`status-text ${selectedContrato.estado.toLowerCase()}`}>{selectedContrato.estado}</span>
+                </div>
             </div>
           </div>
 
-          <h3 className="section-title">Expediente Digital - Categorías</h3>
+          <h3 className="section-title">Expediente Digital</h3>
+          
           <div className="documents-grid">
-            {DOC_CATEGORIES.map((cat, index) => (
-              <div key={index} className="doc-card glass-panel">
-                <div className="doc-icon-wrapper"><FolderOpen size={24} color="#60a5fa" /></div>
-                <div className="doc-info"><h4>{cat}</h4><p>0 archivos</p></div>
-                <div className="doc-actions">
-                  <button className="btn-icon-small"><Upload size={14}/></button>
-                  <button className="btn-icon-small"><ChevronRight size={14}/></button>
+            {DOC_CATEGORIES.map((cat, index) => {
+              const filesInCat = allDocuments.filter(d => d.contratoId === selectedContrato.id && d.categoria === cat);
+              const hasFiles = filesInCat.length > 0;
+
+              return (
+                <div key={index} className="doc-card" style={{borderColor: hasFiles ? '#3b82f6' : 'rgba(255,255,255,0.1)'}}>
+                  
+                  {/* Encabezado de la tarjeta */}
+                  <div className="doc-info">
+                      <h4 style={{color: hasFiles?'#fff':'#94a3b8'}}>{cat}</h4>
+                      <p style={{color: hasFiles?'#4ade80':'#64748b'}}>{filesInCat.length} archivos</p>
+                  </div>
+
+                  {/* Área de archivos */}
+                  <div className="files-list-area">
+                    <br />  
+                      {hasFiles ? (
+                          filesInCat.map(file => (
+                              <div key={file.id} className="file-item-row">
+                                  <div style={{display:'flex', alignItems:'center', gap:'8px', overflow:'hidden'}}>
+                                    <FileText size={16} color="#60a5fa"/>
+                                    <span style={{fontSize:'0.8rem', color:'#e2e8f0', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'130px'}} title={file.nombreArchivo}>
+                                        {file.nombreArchivo}
+                                    </span>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleDownload(file.nombreArchivo)}
+                                    title="Descargar"
+                                    style={{background:'none', border:'none', cursor:'pointer', color:'#4ade80'}}
+                                  >
+                                      <Download size={18} />
+                                  </button>
+                              </div>
+                          ))
+                      ) : (
+                          <div className="empty-state">
+                              <span style={{fontSize:'0.75rem', color:'#475569', fontStyle:'italic'}}>Sin entregas</span>
+                          </div>
+                      )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

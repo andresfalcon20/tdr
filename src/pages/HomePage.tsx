@@ -9,7 +9,7 @@ const HomePage = () => {
         <div className="home-container">
             {/* Fondo Espacial (La Tierra de noche) */}
             <div className="earth-bg"></div>
-            
+                
             {/* Tarjeta de Cristal Oscuro */}
             <div className="glass-panel animate-fade-in">
                 
