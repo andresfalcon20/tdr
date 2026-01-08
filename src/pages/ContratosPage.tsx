@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 import '../styles/ContratosStyles.css'; 
 
-// --- LISTA OFICIAL DE DIRECCIONES ---
 const DIRECCIONES_LIST = [
     "TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN",
     "DIRECCIÓN DE INFORMACIÓN HIDROMETEOROLÓGICA",
@@ -20,7 +19,6 @@ const DIRECCIONES_LIST = [
     "LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS"
 ];
 
-// --- INTERFACES ---
 interface Contrato {
   id: number;
   numeroContrato: string;
@@ -52,7 +50,6 @@ const ContratosPage = () => {
   const [view, setView] = useState<'list' | 'detail' | 'create'>('list');
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   
-  // 1. CARGA DE DATOS
   const [contratos, setContratos] = useState<Contrato[]>(() => {
       const saved = localStorage.getItem('sistema_contratos');
       return saved ? JSON.parse(saved) : []; 
@@ -71,7 +68,6 @@ const ContratosPage = () => {
       }
   }, [view]);
 
-  // 2. FILTROS
   const [filters, setFilters] = useState({
     numero: '', profesional: '', admin: '', direccion: ''
   });
@@ -120,14 +116,12 @@ const ContratosPage = () => {
 
   return (
     <div className="contratos-container">
-      <div className="space-background"></div>
-
-      {/* --- VISTA LISTA --- */}
+      
       {view === 'list' && (
         <div className="content-fade-in">
           <header className="page-header">
             <div>
-              <h1>Gestión de Contratos</h1>
+              <h1>GESTION DE CONTRATOS</h1>
               <p>Módulo de Búsqueda, Filtrado y Auditoría</p>
             </div>
             <button className="btn-primary" onClick={() => setView('create')}>
@@ -135,9 +129,9 @@ const ContratosPage = () => {
             </button>
           </header>
 
-          <div className="glass-panel">
+          <div className="white-panel">
             <div className="filters-header">
-              <Filter size={16} color="#3b82f6"/> <span>Búsqueda Avanzada</span>
+              <Filter size={16} color="#4318FF"/> <span>Búsqueda Avanzada</span>
             </div>
             
             <div className="filters-row">
@@ -165,7 +159,7 @@ const ContratosPage = () => {
             </div>
           </div>
 
-          <div className="table-wrapper glass-panel" style={{padding:0}}>
+          <div className="table-wrapper">
             <table className="contratos-table">
               <thead>
                 <tr>
@@ -179,13 +173,13 @@ const ContratosPage = () => {
               </thead>
               <tbody>
                 {filteredContratos.length === 0 ? (
-                    <tr><td colSpan={6} style={{textAlign:'center', padding:'30px', color:'#94a3b8'}}>No se encontraron contratos.</td></tr>
+                    <tr><td colSpan={6} style={{textAlign:'center', padding:'40px', color:'#A3AED0'}}>No se encontraron contratos.</td></tr>
                 ) : (
                     filteredContratos.map((c) => (
                         <tr key={c.id}>
                             <td className="highlight-cell">{c.numeroContrato}</td>
-                            <td><div className="user-cell"><User size={14} /> {c.nombreProfesional}</div></td>
-                            <td style={{fontSize:'0.8rem', maxWidth:'280px', lineHeight:'1.3'}}>{c.direccion}</td>
+                            <td><div className="user-cell"><User size={16} color="#A3AED0"/> {c.nombreProfesional}</div></td>
+                            <td style={{fontSize:'0.85rem', maxWidth:'300px', lineHeight:'1.5', color:'#64748b'}}>{c.direccion}</td>
                             <td>{c.adminContrato}</td>
                             <td><span className={`status-badge status-${c.estado.toLowerCase()}`}>{c.estado}</span></td>
                             <td>
@@ -202,21 +196,61 @@ const ContratosPage = () => {
         </div>
       )}
 
-      {/* --- VISTA CREAR --- */}
       {view === 'create' && (
-        <div className="glass-panel content-fade-in" style={{maxWidth: '900px', margin: '0 auto'}}>
+        <div className="white-panel content-fade-in" style={{maxWidth: '1000px', margin: '0 auto'}}>
           <div className="form-header-row">
-             <button className="btn-back" onClick={() => setView('list')}><ArrowLeft size={20} /> Cancelar</button>
-             <h2>Nuevo Contrato</h2>
+             <button className="btn-back" onClick={() => setView('list')}><ArrowLeft size={20} /> Regresar</button>
+<div style={{ 
+    position: 'relative', 
+    width: '100%', 
+    display: 'flex', 
+    alignItems: 'center', 
+    marginBottom: '40px',
+    minHeight: '60px' 
+}}>
+    {/* TU BOTÓN "REGRESAR" SE QUEDA AQUÍ (No lo toques) */}
+
+    {/* EL TÍTULO CON DISEÑO Y CENTRADO REAL */}
+    <div style={{ 
+        position: 'absolute', 
+        left: '40%',           // Se mueve al 50% de la tarjeta
+        transform: 'translateX(-50%)', // Se ajusta para que el centro del texto sea el centro de la tarjeta
+        textAlign: 'center',
+        width: 'max-content',
+        pointerEvents: 'none'  // Deja que el botón de atrás siga siendo clickeable
+    }}>
+        <h2 style={{ 
+            fontSize: '1.9rem', 
+            fontWeight: '900', 
+            color: '#00157aff', 
+            margin: 0,
+            letterSpacing: '-0.5px',
+            pointerEvents: 'auto'
+        }}>
+            Nuevo Contrato
+        </h2>
+        
+        {/* La rayita morada decorativa */}
+        <div style={{ 
+            width: '150px', 
+            height: '4px', 
+            backgroundColor: '#4318FF', 
+            borderRadius: '10px', 
+            margin: '8px auto 0' 
+        }}></div>
+    </div>
+</div>
+
           </div>
           <form onSubmit={handleCreate}>
              <div className="form-grid-2-col">
                 <div className="form-item">
                     <label>Número de Contrato</label>
+                  
                     <input type="text" name="numeroContrato" required onChange={handleInputChange} placeholder="Ej: CTR-2026-001"/>
                 </div>
                 <div className="form-item">
-                    <label>Profesional (Debe coincidir con Usuario)</label>
+                    <label>Profesional</label>
                     <input type="text" name="nombreProfesional" required onChange={handleInputChange} placeholder="Nombre completo"/>
                 </div>
                 <div className="form-item">
@@ -250,7 +284,6 @@ const ContratosPage = () => {
         </div>
       )}
 
-      {/* --- VISTA DETALLE --- */}
       {view === 'detail' && selectedContrato && (
         <div className="detail-view content-slide-up">
           <button className="btn-back" onClick={() => setView('list')}>
@@ -258,7 +291,7 @@ const ContratosPage = () => {
           </button>
           <br />
 
-          <div className="contract-header glass-panel">
+          <div className="contract-header">
             <div className="header-info">
                 <h2>{selectedContrato.numeroContrato}</h2>
                 <span className="subtitle">{selectedContrato.nombreProfesional}</span>
@@ -268,7 +301,7 @@ const ContratosPage = () => {
                     <label>Admin. Contrato</label>
                     <span>{selectedContrato.adminContrato}</span>
                 </div>
-                <div className="stat-box">
+                <div className="stat-box" style={{marginLeft:'40px'}}>
                     <label>Estado</label>
                     <span className={`status-text ${selectedContrato.estado.toLowerCase()}`}>{selectedContrato.estado}</span>
                 </div>
@@ -283,38 +316,35 @@ const ContratosPage = () => {
               const hasFiles = filesInCat.length > 0;
 
               return (
-                <div key={index} className="doc-card" style={{borderColor: hasFiles ? '#3b82f6' : 'rgba(255,255,255,0.1)'}}>
-                  
-                  {/* Encabezado de la tarjeta */}
+                <div key={index} className="doc-card" style={{borderColor: hasFiles ? '#4318FF' : 'transparent'}}>
                   <div className="doc-info">
-                      <h4 style={{color: hasFiles?'#fff':'#94a3b8'}}>{cat}</h4>
-                      <p style={{color: hasFiles?'#4ade80':'#64748b'}}>{filesInCat.length} archivos</p>
+                      {/* TÍTULOS EN OSCURO, NO BLANCO */}
+                      <h4 style={{color: hasFiles ? '#4318FF' : '#2B3674'}}>{cat}</h4>
+                      <p style={{color: hasFiles ? '#05CD99' : '#A3AED0'}}>{filesInCat.length} archivos</p>
                   </div>
-
-                  {/* Área de archivos */}
                   <div className="files-list-area">
                     <br />  
                       {hasFiles ? (
                           filesInCat.map(file => (
                               <div key={file.id} className="file-item-row">
-                                  <div style={{display:'flex', alignItems:'center', gap:'8px', overflow:'hidden'}}>
-                                    <FileText size={16} color="#60a5fa"/>
-                                    <span style={{fontSize:'0.8rem', color:'#e2e8f0', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'130px'}} title={file.nombreArchivo}>
+                                  <div style={{display:'flex', alignItems:'center', gap:'10px', overflow:'hidden'}}>
+                                    <FileText size={18} color="#4318FF"/>
+                                    <span style={{fontSize:'0.85rem', color:'#2B3674', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'180px'}} title={file.nombreArchivo}>
                                         {file.nombreArchivo}
                                     </span>
                                   </div>
                                   <button 
                                     onClick={() => handleDownload(file.nombreArchivo)}
                                     title="Descargar"
-                                    style={{background:'none', border:'none', cursor:'pointer', color:'#4ade80'}}
+                                    style={{background:'none', border:'none', cursor:'pointer', color:'#05CD99'}}
                                   >
-                                      <Download size={18} />
+                                      <Download size={20} />
                                   </button>
                               </div>
                           ))
                       ) : (
                           <div className="empty-state">
-                              <span style={{fontSize:'0.75rem', color:'#475569', fontStyle:'italic'}}>Sin entregas</span>
+                              <span>Carpeta vacía</span>
                           </div>
                       )}
                   </div>
