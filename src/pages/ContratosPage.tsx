@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  User, ArrowLeft, FolderOpen, Filter, Plus, Save, FileText, Download 
+  User, ArrowLeft, FolderOpen, Filter, Plus, Save, FileText, Download, Pencil, Trash2 
 } from 'lucide-react';
 import '../styles/ContratosStyles.css'; 
 
@@ -18,6 +18,12 @@ const DIRECCIONES_LIST = [
     "DIRECCIÓN DE LA RED NACIONAL DE OBSERVACIÓN HIDROMETEOROLÓGICA",
     "LABORATORIO NACIONAL DE CALIDAD DE AGUA Y SEDIMENTOS"
 ];
+
+interface Usuario {
+    id: number;
+    nombre: string;
+    rol: string;
+}
 
 interface Contrato {
   id: number;
@@ -47,15 +53,22 @@ const DOC_CATEGORIES = [
 ];
 
 const ContratosPage = () => {
-  const [view, setView] = useState<'list' | 'detail' | 'create'>('list');
+  const [view, setView] = useState<'list' | 'detail' | 'form'>('list'); // 'form' sirve para crear y editar
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   
+  // Lista de usuarios contratados para el select
+  const [contratadosList, setContratadosList] = useState<Usuario[]>([]);
+
   const [contratos, setContratos] = useState<Contrato[]>(() => {
       const saved = localStorage.getItem('sistema_contratos');
       return saved ? JSON.parse(saved) : []; 
   });
 
   const [allDocuments, setAllDocuments] = useState<Documento[]>([]);
+
+  // Estado del formulario (para crear y editar)
+  const [formData, setFormData] = useState<Partial<Contrato>>({});
 
   useEffect(() => {
       localStorage.setItem('sistema_contratos', JSON.stringify(contratos));
@@ -66,13 +79,30 @@ const ContratosPage = () => {
           const docs = localStorage.getItem('sistema_documentos');
           if (docs) setAllDocuments(JSON.parse(docs));
       }
+      // Cargar usuarios al cargar la página
+      const usersDB: Usuario[] = JSON.parse(localStorage.getItem('sistema_usuarios') || '[]');
+      const soloContratados = usersDB.filter(u => u.rol === 'Contratado');
+      setContratadosList(soloContratados);
+
   }, [view]);
+
+  // --- FUNCIÓN PARA GUARDAR EN EL HISTORIAL ---
+  const registrarHistorial = (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
+      const historial = JSON.parse(localStorage.getItem('sistema_historial') || '[]');
+      const nuevoLog = {
+          id: Date.now(),
+          accion: accion,
+          entidad: 'Contrato',
+          detalle: detalle,
+          fecha: new Date().toISOString(),
+          usuario: 'Admin General' 
+      };
+      localStorage.setItem('sistema_historial', JSON.stringify([nuevoLog, ...historial]));
+  };
 
   const [filters, setFilters] = useState({
     numero: '', profesional: '', admin: '', direccion: ''
   });
-
-  const [newContrato, setNewContrato] = useState<Partial<Contrato>>({});
 
   const filteredContratos = contratos.filter(c => 
     c.numeroContrato.toLowerCase().includes(filters.numero.toLowerCase()) &&
@@ -85,23 +115,69 @@ const ContratosPage = () => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
   
+  // --- MANEJO DEL FORMULARIO (Crear y Editar) ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setNewContrato({ ...newContrato, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const contratoFinal = { 
-        ...newContrato, 
-        id: Date.now(), 
-        estado: 'Activo', 
-        progreso: 0 
-    } as Contrato;
+  const handleCreateClick = () => {
+      setIsEditing(false);
+      setFormData({});
+      setView('form');
+  };
 
-    setContratos([...contratos, contratoFinal]);
-    alert("Contrato creado exitosamente.");
+  const handleEditClick = (contrato: Contrato) => {
+      setIsEditing(true);
+      setFormData({ ...contrato });
+      setView('form');
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.nombreProfesional) {
+        alert("Por favor seleccione un profesional.");
+        return;
+    }
+
+    if (isEditing && formData.id) {
+        // ACTUALIZAR
+        const updatedContratos = contratos.map(c => c.id === formData.id ? { ...c, ...formData } as Contrato : c);
+        setContratos(updatedContratos);
+        
+        // Historial Edición
+        registrarHistorial('Edición', `Se actualizó la información del contrato ${formData.numeroContrato}`);
+        
+        alert("Contrato actualizado correctamente.");
+    } else {
+        // CREAR NUEVO
+        const nuevoContrato = { 
+            ...formData, 
+            id: Date.now(), 
+            estado: 'Activo', 
+            progreso: 0 
+        } as Contrato;
+        setContratos([...contratos, nuevoContrato]);
+        
+        // Historial Creación
+        registrarHistorial('Creación', `Se creó el contrato ${nuevoContrato.numeroContrato} para ${nuevoContrato.nombreProfesional}`);
+        
+        alert("Contrato creado exitosamente.");
+    }
+    
     setView('list');
-    setNewContrato({});
+    setFormData({});
+  };
+
+  const handleDelete = (id: number) => {
+      const contratoToDelete = contratos.find(c => c.id === id);
+      if(window.confirm("¿Estás seguro de eliminar este contrato? Esta acción no se puede deshacer.")) {
+          setContratos(contratos.filter(c => c.id !== id));
+          
+          // Historial Eliminación
+          if (contratoToDelete) {
+              registrarHistorial('Eliminación', `Se eliminó el contrato ${contratoToDelete.numeroContrato}`);
+          }
+      }
   };
 
   const handleDownload = (fileName: string) => {
@@ -117,6 +193,7 @@ const ContratosPage = () => {
   return (
     <div className="contratos-container">
       
+      {/* === VISTA LISTA === */}
       {view === 'list' && (
         <div className="content-fade-in">
           <header className="page-header">
@@ -124,7 +201,7 @@ const ContratosPage = () => {
               <h1>GESTION DE CONTRATOS</h1>
               <p>Módulo de Búsqueda, Filtrado y Auditoría</p>
             </div>
-            <button className="btn-primary" onClick={() => setView('create')}>
+            <button className="btn-primary" onClick={handleCreateClick}>
               <Plus size={18} /> Nuevo Contrato
             </button>
           </header>
@@ -183,9 +260,17 @@ const ContratosPage = () => {
                             <td>{c.adminContrato}</td>
                             <td><span className={`status-badge status-${c.estado.toLowerCase()}`}>{c.estado}</span></td>
                             <td>
-                            <button className="btn-action" onClick={() => {setSelectedContrato(c); setView('detail');}}>
-                                <FolderOpen size={16} /> Ver Expediente
-                            </button>
+                                <div className="actions-cell">
+                                    <button className="btn-action" onClick={() => {setSelectedContrato(c); setView('detail');}} title="Ver Expediente">
+                                        <FolderOpen size={16} /> Ver
+                                    </button>
+                                    <button className="btn-edit" onClick={() => handleEditClick(c)} title="Editar Contrato">
+                                        <Pencil size={16} />
+                                    </button>
+                                    <button className="btn-delete" onClick={() => handleDelete(c.id)} title="Eliminar Contrato">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))
@@ -196,70 +281,76 @@ const ContratosPage = () => {
         </div>
       )}
 
-      {view === 'create' && (
+      {/* === VISTA FORMULARIO (CREAR / EDITAR) === */}
+      {view === 'form' && (
         <div className="white-panel content-fade-in" style={{maxWidth: '1000px', margin: '0 auto'}}>
           <div className="form-header-row">
              <button className="btn-back" onClick={() => setView('list')}><ArrowLeft size={20} /> Regresar</button>
-<div style={{ 
-    position: 'relative', 
-    width: '100%', 
-    display: 'flex', 
-    alignItems: 'center', 
-    marginBottom: '40px',
-    minHeight: '60px' 
-}}>
-    {/* TU BOTÓN "REGRESAR" SE QUEDA AQUÍ (No lo toques) */}
-
-    {/* EL TÍTULO CON DISEÑO Y CENTRADO REAL */}
-    <div style={{ 
-        position: 'absolute', 
-        left: '40%',           // Se mueve al 50% de la tarjeta
-        transform: 'translateX(-50%)', // Se ajusta para que el centro del texto sea el centro de la tarjeta
-        textAlign: 'center',
-        width: 'max-content',
-        pointerEvents: 'none'  // Deja que el botón de atrás siga siendo clickeable
-    }}>
-        <h2 style={{ 
-            fontSize: '1.9rem', 
-            fontWeight: '900', 
-            color: '#00157aff', 
-            margin: 0,
-            letterSpacing: '-0.5px',
-            pointerEvents: 'auto'
-        }}>
-            Nuevo Contrato
-        </h2>
-        
-        {/* La rayita morada decorativa */}
-        <div style={{ 
-            width: '150px', 
-            height: '4px', 
-            backgroundColor: '#4318FF', 
-            borderRadius: '10px', 
-            margin: '8px auto 0' 
-        }}></div>
-    </div>
-</div>
-
+             <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center', marginBottom: '40px', minHeight: '60px' }}>
+                <div style={{ position: 'absolute', left: '40%', transform: 'translateX(-50%)', textAlign: 'center', width: 'max-content', pointerEvents: 'none' }}>
+                    <h2 style={{ fontSize: '1.9rem', fontWeight: '900', color: '#00157aff', margin: 0, letterSpacing: '-0.5px', pointerEvents: 'auto' }}>
+                        {isEditing ? 'Modificar Contrato' : 'Nuevo Contrato'}
+                    </h2>
+                    <div style={{ width: '150px', height: '4px', backgroundColor: '#4318FF', borderRadius: '10px', margin: '8px auto 0' }}></div>
+                </div>
+             </div>
           </div>
-          <form onSubmit={handleCreate}>
+          
+          <form onSubmit={handleSave}>
              <div className="form-grid-2-col">
                 <div className="form-item">
                     <label>Número de Contrato</label>
-                  
-                    <input type="text" name="numeroContrato" required onChange={handleInputChange} placeholder="Ej: CTR-2026-001"/>
+                    <input 
+                        type="text" 
+                        name="numeroContrato" 
+                        required 
+                        value={formData.numeroContrato || ''} 
+                        onChange={handleInputChange} 
+                        placeholder="Ej: CTR-2026-001"
+                    />
                 </div>
+                
+                {/* SELECTOR DE USUARIOS */}
                 <div className="form-item">
-                    <label>Profesional</label>
-                    <input type="text" name="nombreProfesional" required onChange={handleInputChange} placeholder="Nombre completo"/>
+                    <label>Profesional (Usuario Contratado)</label>
+                    <select 
+                        name="nombreProfesional" 
+                        required 
+                        value={formData.nombreProfesional || ''} 
+                        onChange={handleInputChange} 
+                        className="custom-select"
+                    >
+                        <option value="">Seleccione un usuario...</option>
+                        {contratadosList.map(user => (
+                            <option key={user.id} value={user.nombre}>{user.nombre}</option>
+                        ))}
+                    </select>
+                    {contratadosList.length === 0 && (
+                        <small style={{color: 'red', marginTop: '5px', display: 'block'}}>
+                            * No hay usuarios con rol "Contratado".
+                        </small>
+                    )}
                 </div>
+
                 <div className="form-item">
                     <label>Administrador del Contrato</label>
-                    <input type="text" name="adminContrato" required onChange={handleInputChange} placeholder="Funcionario responsable"/>
+                    <input 
+                        type="text" 
+                        name="adminContrato" 
+                        required 
+                        value={formData.adminContrato || ''} 
+                        onChange={handleInputChange} 
+                        placeholder="Funcionario responsable"
+                    />
                 </div>
                 <div className="form-item">
                     <label>Dirección Solicitante</label>
-                   <select name="direccion" required onChange={handleInputChange}>
+                   <select 
+                        name="direccion" 
+                        required 
+                        value={formData.direccion || ''} 
+                        onChange={handleInputChange}
+                    >
                       <option value="">Seleccione...</option>
                       {DIRECCIONES_LIST.map((dir, index) => (
                         <option key={index} value={dir}>{dir}</option>
@@ -268,22 +359,35 @@ const ContratosPage = () => {
                 </div>
                 <div className="form-item">
                     <label>Fecha Inicio</label>
-                    <input type="date" name="fechaInicio" required onChange={handleInputChange}/>
+                    <input 
+                        type="date" 
+                        name="fechaInicio" 
+                        required 
+                        value={formData.fechaInicio || ''} 
+                        onChange={handleInputChange}
+                    />
                 </div>
                 <div className="form-item">
                     <label>Fecha Fin</label>
-                    <input type="date" name="fechaFin" required onChange={handleInputChange}/>
+                    <input 
+                        type="date" 
+                        name="fechaFin" 
+                        required 
+                        value={formData.fechaFin || ''} 
+                        onChange={handleInputChange}
+                    />
                 </div>
              </div>
              <div className="form-actions-right">
                 <button type="submit" className="btn-primary">
-                    <Save size={18} /> Guardar Contrato
+                    <Save size={18} /> {isEditing ? 'Guardar Cambios' : 'Guardar Contrato'}
                 </button>
              </div>
           </form>
         </div>
       )}
 
+      {/* === VISTA DETALLE === */}
       {view === 'detail' && selectedContrato && (
         <div className="detail-view content-slide-up">
           <button className="btn-back" onClick={() => setView('list')}>
@@ -318,7 +422,6 @@ const ContratosPage = () => {
               return (
                 <div key={index} className="doc-card" style={{borderColor: hasFiles ? '#4318FF' : 'transparent'}}>
                   <div className="doc-info">
-                      {/* TÍTULOS EN OSCURO, NO BLANCO */}
                       <h4 style={{color: hasFiles ? '#4318FF' : '#2B3674'}}>{cat}</h4>
                       <p style={{color: hasFiles ? '#05CD99' : '#A3AED0'}}>{filesInCat.length} archivos</p>
                   </div>

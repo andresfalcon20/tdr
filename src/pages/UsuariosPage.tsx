@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-    Plus, Search, Key, Trash2, ArrowLeft
+    Plus, Search, Key, Trash2, ArrowLeft, Pencil, X, Save, CheckCircle
 } from 'lucide-react';
 import '../styles/UsuariosStyles.css';
 
@@ -35,32 +35,56 @@ const INITIAL_DATA: Usuario[] = [
 ];
 
 const UsuariosPage = () => {
-    const [view, setView] = useState<'list' | 'create'>('list');
+    // --- ESTADOS ---
+    const [view, setView] = useState<'list' | 'form'>('list');
+    const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Estado del formulario
     const [formData, setFormData] = useState<Partial<Usuario>>({});
-
+    
+    // Lista de usuarios
     const [users, setUsers] = useState<Usuario[]>(() => {
         const saved = localStorage.getItem('sistema_usuarios');
         return saved ? JSON.parse(saved) : INITIAL_DATA;
     });
 
+    // Estados para el Modal de Contraseña
+    const [showPassModal, setShowPassModal] = useState(false);
+    const [selectedUserPass, setSelectedUserPass] = useState<Usuario | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+
     useEffect(() => {
         localStorage.setItem('sistema_usuarios', JSON.stringify(users));
     }, [users]);
 
-    // Filtrado
+    // --- FUNCIÓN PARA GUARDAR EN EL HISTORIAL ---
+    const registrarHistorial = (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
+        const historial = JSON.parse(localStorage.getItem('sistema_historial') || '[]');
+        const nuevoLog = {
+            id: Date.now(),
+            accion: accion,
+            entidad: 'Usuario',
+            detalle: detalle,
+            fecha: new Date().toISOString(),
+            usuario: 'Admin General' 
+        };
+        localStorage.setItem('sistema_historial', JSON.stringify([nuevoLog, ...historial]));
+    };
+
+    // --- FILTROS ---
     const filteredUsers = users.filter(u =>
         u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.area.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Función para asignar color al avatar
+    // --- HELPERS VISUALES ---
     const getAvatarColor = (name: string) => {
-        const firstLetter = name.charAt(0).toUpperCase();
-        if (['A', 'E', 'I', 'O', 'U'].includes(firstLetter)) return 'avatar-blue';
-        if (['B', 'C', 'D', 'F', 'G'].includes(firstLetter)) return 'avatar-green';
-        if (['H', 'J', 'K', 'L', 'M'].includes(firstLetter)) return 'avatar-orange';
+        const first = name.charAt(0).toUpperCase();
+        if (['A','E','I','O','U'].includes(first)) return 'avatar-blue';
+        if (['B','C','D','F','G'].includes(first)) return 'avatar-green';
+        if (['H','J','K','L','M'].includes(first)) return 'avatar-orange';
         return 'avatar-purple';
     };
 
@@ -70,28 +94,85 @@ const UsuariosPage = () => {
         return <span className="role-badge badge-contract">Contratado</span>;
     };
 
-    const handleSaveUser = (e: React.FormEvent) => {
-        e.preventDefault();
-        const newUser = { ...formData, id: Date.now() } as Usuario;
-        setUsers([...users, newUser]);
-        setView('list');
-        setFormData({});
-    };
-
-    const handleDelete = (id: number) => {
-        if (confirm('¿Estás seguro de eliminar este usuario?')) {
-            setUsers(users.filter(u => u.id !== id));
-        }
-    };
+    // --- LÓGICA CRUD ---
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleCreate = () => {
+        setIsEditing(false);
+        setFormData({});
+        setView('form');
+    };
+
+    const handleEdit = (user: Usuario) => {
+        setIsEditing(true);
+        setFormData({ ...user });
+        setView('form');
+    };
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (isEditing && formData.id) {
+            // Actualizar
+            const updated = users.map(u => u.id === formData.id ? { ...u, ...formData } as Usuario : u);
+            setUsers(updated);
+            
+            // Historial Edición
+            registrarHistorial('Edición', `Se actualizaron los datos del usuario ${formData.nombre}`);
+            
+            alert("Datos de usuario actualizados.");
+        } else {
+            // Crear
+            const newUser = { ...formData, id: Date.now() } as Usuario;
+            setUsers([...users, newUser]);
+            
+            // Historial Creación
+            registrarHistorial('Creación', `Se registró al usuario ${newUser.nombre} con rol ${newUser.rol}`);
+            
+            alert("Usuario creado exitosamente.");
+        }
+        setView('list');
+    };
+
+    const handleDelete = (id: number) => {
+        const userToDelete = users.find(u => u.id === id);
+        if(window.confirm("¿Eliminar este usuario permanentemente?")) {
+            setUsers(users.filter(u => u.id !== id));
+            
+            // Historial Eliminación
+            if (userToDelete) {
+                registrarHistorial('Eliminación', `Se eliminó al usuario ${userToDelete.nombre}`);
+            }
+        }
+    };
+
+    // --- LÓGICA RESET PASSWORD ---
+    const openPassModal = (user: Usuario) => {
+        setSelectedUserPass(user);
+        setNewPassword('');
+        setShowPassModal(true);
+    };
+
+    const saveNewPassword = () => {
+        if(!selectedUserPass) return;
+        if(newPassword.length < 4) return alert("La contraseña es muy corta.");
+        
+        const updated = users.map(u => u.id === selectedUserPass.id ? {...u, password: newPassword} : u);
+        setUsers(updated);
+        
+        // Historial Cambio Clave
+        registrarHistorial('Edición', `Se restableció la contraseña del usuario ${selectedUserPass.nombre}`);
+        
+        alert(`Contraseña actualizada para ${selectedUserPass.nombre}`);
+        setShowPassModal(false);
+    };
+
     return (
         <div className="page-container">
-
-            {/* VISTA LISTA */}
+            
+            {/* --- VISTA LISTA --- */}
             {view === 'list' && (
                 <>
                     <header className="page-header">
@@ -99,7 +180,7 @@ const UsuariosPage = () => {
                             <h1>Gestión de Usuarios</h1>
                             <p>Administra los roles y permisos del sistema.</p>
                         </div>
-                        <button className="btn-primary" onClick={() => setView('create')}>
+                        <button className="btn-primary" onClick={handleCreate}>
                             <Plus size={18} /> Nuevo Usuario
                         </button>   
                     </header>
@@ -107,12 +188,10 @@ const UsuariosPage = () => {
                     <div className="search-container">
                         <div className="search-box">
                             <Search size={18} color="#A3AED0" />
-                            <input
-                                type="text"
-                                className="search-input"
-                                placeholder="Buscar usuario..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                            <input 
+                                type="text" className="search-input" 
+                                placeholder="Buscar usuario por nombre, email o área..." 
+                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
@@ -142,130 +221,121 @@ const UsuariosPage = () => {
                                             </div>
                                         </td>
                                         <td>{getRoleBadge(u.rol)}</td>
-                                        <td style={{ color: '#475569', fontSize: '0.9rem' }}>{u.area}</td>
+                                        <td style={{color:'#475569', fontSize:'0.9rem'}}>{u.area}</td>
                                         <td>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button className="action-btn btn-edit" title="Editar Contraseña">
-                                                    <Key size={16} />
+                                            <div className="actions-row">
+                                                <button className="action-btn btn-edit" onClick={() => handleEdit(u)} title="Editar Datos">
+                                                    <Pencil size={16}/>
+                                                </button>
+                                                <button className="action-btn btn-key" onClick={() => openPassModal(u)} title="Resetear Clave">
+                                                    <Key size={16}/>
                                                 </button>
                                                 <button className="action-btn btn-delete" onClick={() => handleDelete(u.id)} title="Eliminar">
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={16}/>
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredUsers.length === 0 && (
-                                    <tr>
-                                        <td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: '#A3AED0' }}>
-                                            No se encontraron usuarios.
-                                        </td>
-                                    </tr>
-                                )}
+                                {filteredUsers.length === 0 && <tr><td colSpan={4} className="empty-row">No se encontraron usuarios.</td></tr>}
                             </tbody>
                         </table>
                     </div>
                 </>
             )}
 
-            {/* VISTA CREAR */}
-            {view === 'create' && (
+            {/* --- VISTA FORMULARIO --- */}
+            {view === 'form' && (
                 <div className="form-card">
-                    <div className="form-header-row">
-
-
+                    <div className="form-header-container">
                         <button className="btn-secondary" onClick={() => setView('list')}>
-
-
                             <ArrowLeft size={18} /> Regresar
                         </button>
-
-                        <div style={{
-                            position: 'relative',
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            marginBottom: '40px',
-                            minHeight: '30px'
-                        }}>
-                         
-                            <div style={{
-                                position: 'absolute',
-                                left: '35%',          // Se mueve al centro del contenedor
-                                transform: 'translateX(-50%)', // Se desplaza hacia atrás su propio ancho para centrarse perfecto
-                                textAlign: 'center',
-                                width: 'max-content',  // Evita que el contenedor sea más ancho de lo necesario
-                                zIndex: 1,
-                                pointerEvents: 'none'
-                            }}>
-                                <h2 style={{
-                                    fontSize: '1.9rem',
-                                    fontWeight: '700',
-                                    color: '#011474ff',
-                                    margin: 0,
-                                    pointerEvents: 'auto'
-                                }}>
-                                    Nuevo Usuario
-                                </h2>
-
-                                <div style={{
-                                    width: '150px',
-                                    height: '4px',
-                                    backgroundColor: '#4318FF',
-                                    borderRadius: '10px',
-                                    margin: '8px auto 0'
-                                }}></div>
-                            </div>
+                        
+                        <div className="form-title-wrapper">
+                            <h2>{isEditing ? 'Modificar Usuario' : 'Nuevo Usuario'}</h2>
+                            <div className="title-underline"></div>
                         </div>
+                        
+                        <div style={{width: '100px'}}></div> 
                     </div>
 
-                    <form onSubmit={handleSaveUser}>
+                    <form onSubmit={handleSave}>
                         <div className="form-grid">
-
                             <div className="input-group">
                                 <label>Nombre Completo</label>
-                                <input type="text" name="nombre" required onChange={handleInputChange} placeholder="Ingrese su nombre completo" />
+                                <br />
+                                
+                                <input type="text" name="nombre" required value={formData.nombre || ''} onChange={handleInputChange} placeholder="Ingrese nombre completo"/>
                             </div>
-
                             <div className="input-group">
+                                <br />
                                 <label>Correo Institucional</label>
-                                <input type="email" name="email" required onChange={handleInputChange} placeholder="usuario@inamhi.ec" />
+                                <input type="email" name="email" required value={formData.email || ''} onChange={handleInputChange} placeholder="usuario@inamhi.ec"/>
                             </div>
-
                             <div className="input-group">
+                                <br />
                                 <label>Rol en el Sistema</label>
-                                <select name="rol" required onChange={handleInputChange}>
+                                <select name="rol" required value={formData.rol || ''} onChange={handleInputChange}>
                                     <option value="">Seleccione...</option>
-                                    {/* SOLO TÉCNICO Y CONTRATADO */}
                                     <option value="Técnico">Técnico</option>
                                     <option value="Contratado">Contratado</option>
                                 </select>
                             </div>
-
                             <div className="input-group">
                                 <label>Dirección / Área</label>
-                                <select name="area" required onChange={handleInputChange}>
+                                <br />
+                                <select name="area" required value={formData.area || ''} onChange={handleInputChange}>
                                     <option value="">Seleccione...</option>
-                                    {DIRECCIONES_INAMHI.map((dir, idx) => (
-                                        <option key={idx} value={dir}>{dir}</option>
-                                    ))}
+                                    {DIRECCIONES_INAMHI.map((dir, idx) => <option key={idx} value={dir}>{dir}</option>)}
                                 </select>
                             </div>
-
-                            <div className="input-group full-width">
-                                <label>Contraseña Temporal</label>
-                                <input type="text" name="password" placeholder="Ingrese contraseña..." onChange={handleInputChange} />
-                            </div>
+                            
+                            {!isEditing && (
+                                <div className="input-group full-width">
+                                    <label>Contraseña Temporal</label>
+                                    <br />
+                                    <input type="text" name="password" required placeholder="Asigne una contraseña inicial..." onChange={handleInputChange}/>
+                                </div>
+                            )}
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div className="form-actions">
                             <button type="submit" className="btn-primary">
-                                Guardar Usuario
+                                <Save size={18}/> {isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
                             </button>
                         </div>
                     </form>
                 </div>
             )}
+
+            {/* --- MODAL RESET PASSWORD --- */}
+            {showPassModal && selectedUserPass && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <button className="modal-close" onClick={() => setShowPassModal(false)}><X size={20}/></button>
+                        
+                        <div className="modal-header">
+                            <div className="modal-icon-box"><Key size={28}/></div>
+                            <h3>Restaurar Contraseña</h3>
+                            <p>Usuario: <strong>{selectedUserPass.nombre}</strong></p>
+                        </div>
+
+                        <div className="modal-body">
+                            <div className="input-group">
+                                <label>Nueva Contraseña</label>
+                                <br />
+                                <input type="text" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Escriba la nueva clave..."/>
+                            </div>
+                        </div>
+
+                        <button className="btn-primary full-btn" onClick={saveNewPassword}>
+                            <CheckCircle size={18}/> Confirmar Cambio
+                        </button>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

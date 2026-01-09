@@ -7,6 +7,7 @@ import TdrPage from '../pages/TdrPage';
 import AdminPage from '../pages/AdminPage';
 import TecnicoPage from '../pages/TecnicoPage';
 import PortalContratadoPage from '../pages/PortalContratadoPage'; // <--- IMPORTANTE
+import HistorialPage from '../pages/HistorialPage';
 
 export const AppRoutes = () => {
   return (
@@ -20,6 +21,7 @@ export const AppRoutes = () => {
       <Route path="/contratos" element={<ContratosPage />} />
       <Route path="/usuarios" element={<UsuariosPage />} />
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/historial" element={<HistorialPage />} />
       
       {/* Ruta para Técnicos */}
       <Route path="/tecnico" element={<TecnicoPage />} /> 
