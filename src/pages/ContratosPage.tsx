@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
-  User, ArrowLeft, FolderOpen, Filter, Plus, Save, FileText, Download, Pencil, Trash2 
+  User, ArrowLeft, FolderOpen, Filter, Plus, Save, FileText, Download, Pencil, Trash2, Search, Check, ChevronDown, 
+  Briefcase, Shield, Calendar, ChevronRight 
 } from 'lucide-react';
 import '../styles/ContratosStyles.css'; 
 
@@ -53,69 +54,104 @@ const DOC_CATEGORIES = [
 ];
 
 const ContratosPage = () => {
-  const [view, setView] = useState<'list' | 'detail' | 'form'>('list'); // 'form' sirve para crear y editar
+  const [view, setView] = useState<'list' | 'detail' | 'form'>('list');
   const [isEditing, setIsEditing] = useState(false);
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   
-  // Lista de usuarios contratados para el select
+  // Lista de usuarios contratados
   const [contratadosList, setContratadosList] = useState<Usuario[]>([]);
 
-  const [contratos, setContratos] = useState<Contrato[]>(() => {
-      const saved = localStorage.getItem('sistema_contratos');
-      return saved ? JSON.parse(saved) : []; 
-  });
+  // Estado principal de contratos
+  const [contratos, setContratos] = useState<Contrato[]>([]);
 
   const [allDocuments, setAllDocuments] = useState<Documento[]>([]);
-
-  // Estado del formulario (para crear y editar)
   const [formData, setFormData] = useState<Partial<Contrato>>({});
 
+  // 1. CARGAR DATOS AL INICIO
   useEffect(() => {
-      localStorage.setItem('sistema_contratos', JSON.stringify(contratos));
-  }, [contratos]);
+      cargarDatosDelServidor();
+  }, []);
+
+  const cargarDatosDelServidor = async () => {
+      try {
+          // A. Cargar Contratos
+          const resContratos = await fetch('/api/contratos');
+          if (resContratos.ok) {
+              const data = await resContratos.json();
+              // Mapeo: Convertimos snake_case (BD) a camelCase (React)
+              const formateados = data.map((c: any) => ({
+                  id: c.id,
+                  numeroContrato: c.numero_contrato,
+                  nombreProfesional: c.nombre_profesional,
+                  direccion: c.direccion,
+                  adminContrato: c.admin_contrato,
+                  fechaInicio: c.fecha_inicio ? c.fecha_inicio.split('T')[0] : '',
+                  fechaFin: c.fecha_fin ? c.fecha_fin.split('T')[0] : '',
+                  estado: c.estado || 'Activo',
+                  progreso: c.progreso || 0
+              }));
+              setContratos(formateados);
+          }
+
+          // B. Cargar Usuarios (Para el select)
+          const resUsuarios = await fetch('/api/usuarios');
+          if (resUsuarios.ok) {
+              const dataUsers = await resUsuarios.json();
+              // Filtramos solo los que tienen rol 'Contratado'
+              setContratadosList(dataUsers.filter((u: any) => u.rol === 'Contratado'));
+          }
+
+      } catch (error) {
+          console.error("Error conectando al servidor:", error);
+      }
+  };
 
   useEffect(() => {
       if (view === 'detail') {
+          // Carga simulada de documentos (esto también podría ir a API en el futuro)
           const docs = localStorage.getItem('sistema_documentos');
           if (docs) setAllDocuments(JSON.parse(docs));
       }
-      // Cargar usuarios al cargar la página
-      const usersDB: Usuario[] = JSON.parse(localStorage.getItem('sistema_usuarios') || '[]');
-      const soloContratados = usersDB.filter(u => u.rol === 'Contratado');
-      setContratadosList(soloContratados);
-
   }, [view]);
 
-  // --- FUNCIÓN PARA GUARDAR EN EL HISTORIAL ---
-  const registrarHistorial = (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
-      const historial = JSON.parse(localStorage.getItem('sistema_historial') || '[]');
-      const nuevoLog = {
-          id: Date.now(),
-          accion: accion,
-          entidad: 'Contrato',
-          detalle: detalle,
-          fecha: new Date().toISOString(),
-          usuario: 'Admin General' 
-      };
-      localStorage.setItem('sistema_historial', JSON.stringify([nuevoLog, ...historial]));
+  const registrarHistorial = async (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
+      try {
+          await fetch('/api/historial', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  accion,
+                  entidad: 'Contrato',
+                  detalle,
+                  usuario: 'Admin General' 
+              })
+          });
+      } catch (e) { console.error("No se pudo guardar historial", e); }
   };
 
-  const [filters, setFilters] = useState({
-    numero: '', profesional: '', admin: '', direccion: ''
+  // --- ESTADOS DE BÚSQUEDA ---
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('Todos');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+
+  // --- LÓGICA DE FILTRADO ---
+  const filteredContratos = contratos.filter(c => {
+    const term = searchTerm.toLowerCase();
+    if (!term) return true;
+
+    if (filterType === 'Nro. Contrato') return c.numeroContrato.toLowerCase().includes(term);
+    if (filterType === 'Profesional') return c.nombreProfesional.toLowerCase().includes(term);
+    if (filterType === 'Admin') return c.adminContrato.toLowerCase().includes(term);
+    if (filterType === 'Dirección') return c.direccion.toLowerCase().includes(term);
+
+    return (
+      c.numeroContrato.toLowerCase().includes(term) ||
+      c.nombreProfesional.toLowerCase().includes(term) ||
+      c.adminContrato.toLowerCase().includes(term) ||
+      c.direccion.toLowerCase().includes(term)
+    );
   });
-
-  const filteredContratos = contratos.filter(c => 
-    c.numeroContrato.toLowerCase().includes(filters.numero.toLowerCase()) &&
-    c.nombreProfesional.toLowerCase().includes(filters.profesional.toLowerCase()) &&
-    c.adminContrato.toLowerCase().includes(filters.admin.toLowerCase()) &&
-    c.direccion.toLowerCase().includes(filters.direccion.toLowerCase())
-  );
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
   
-  // --- MANEJO DEL FORMULARIO (Crear y Editar) ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -132,50 +168,90 @@ const ContratosPage = () => {
       setView('form');
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  // 2. GUARDAR (CREAR O EDITAR) EN BD
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nombreProfesional) {
         alert("Por favor seleccione un profesional.");
         return;
     }
 
-    if (isEditing && formData.id) {
-        // ACTUALIZAR
-        const updatedContratos = contratos.map(c => c.id === formData.id ? { ...c, ...formData } as Contrato : c);
-        setContratos(updatedContratos);
-        
-        // Historial Edición
-        registrarHistorial('Edición', `Se actualizó la información del contrato ${formData.numeroContrato}`);
-        
-        alert("Contrato actualizado correctamente.");
-    } else {
-        // CREAR NUEVO
-        const nuevoContrato = { 
-            ...formData, 
-            id: Date.now(), 
-            estado: 'Activo', 
-            progreso: 0 
-        } as Contrato;
-        setContratos([...contratos, nuevoContrato]);
-        
-        // Historial Creación
-        registrarHistorial('Creación', `Se creó el contrato ${nuevoContrato.numeroContrato} para ${nuevoContrato.nombreProfesional}`);
-        
-        alert("Contrato creado exitosamente.");
+    const datosParaEnviar = {
+        numeroContrato: formData.numeroContrato,
+        nombreProfesional: formData.nombreProfesional,
+        direccion: formData.direccion,
+        adminContrato: formData.adminContrato,
+        fechaInicio: formData.fechaInicio,
+        fechaFin: formData.fechaFin
+    };
+
+    try {
+        if (isEditing && formData.id) {
+            // --- MODO EDICIÓN (PUT) ---
+            const response = await fetch(`/api/contratos/${formData.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datosParaEnviar)
+            });
+
+            if (response.ok) {
+                alert("Contrato actualizado exitosamente.");
+                registrarHistorial('Edición', `Se actualizó el contrato ${formData.numeroContrato}`);
+                cargarDatosDelServidor(); 
+                setView('list');
+                setFormData({});
+            } else {
+                alert("Error al actualizar en la base de datos.");
+            }
+
+        } else {
+            // --- MODO CREACIÓN (POST) ---
+            const response = await fetch('/api/contratos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datosParaEnviar)
+            });
+
+            if (response.ok) {
+                alert("Contrato creado exitosamente.");
+                registrarHistorial('Creación', `Se creó el contrato ${formData.numeroContrato}`);
+                cargarDatosDelServidor(); 
+                setView('list');
+                setFormData({});
+            } else {
+                alert("Error al guardar en base de datos.");
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Error de conexión con el servidor");
     }
-    
-    setView('list');
-    setFormData({});
   };
 
-  const handleDelete = (id: number) => {
+  // 3. ELIMINAR REAL EN BD (DELETE)
+  const handleDelete = async (id: number) => {
       const contratoToDelete = contratos.find(c => c.id === id);
-      if(window.confirm("¿Estás seguro de eliminar este contrato? Esta acción no se puede deshacer.")) {
-          setContratos(contratos.filter(c => c.id !== id));
-          
-          // Historial Eliminación
-          if (contratoToDelete) {
-              registrarHistorial('Eliminación', `Se eliminó el contrato ${contratoToDelete.numeroContrato}`);
+      
+      if(window.confirm(`¿Está seguro de eliminar el contrato ${contratoToDelete?.numeroContrato} permanentemente?`)) {
+          try {
+              // LLAMADA REAL AL SERVIDOR
+              const response = await fetch(`/api/contratos/${id}`, { 
+                  method: 'DELETE' 
+              });
+
+              if (response.ok) {
+                  // Si el servidor confirma que borró, actualizamos la lista visual
+                  setContratos(prev => prev.filter(c => c.id !== id)); 
+                  if (contratoToDelete) {
+                      registrarHistorial('Eliminación', `Eliminado contrato ${contratoToDelete.numeroContrato}`);
+                  }
+                  alert("Contrato eliminado correctamente.");
+              } else {
+                  alert("Error: El servidor no pudo eliminar el registro.");
+              }
+          } catch (error) {
+              console.error(error);
+              alert("Error de conexión al intentar eliminar.");
           }
       }
   };
@@ -191,47 +267,56 @@ const ContratosPage = () => {
   };
 
   return (
-    <div className="contratos-container">
+    <div className="contratos-container fade-in">
       
       {/* === VISTA LISTA === */}
       {view === 'list' && (
-        <div className="content-fade-in">
+        <div>
           <header className="page-header">
             <div>
-              <h1>GESTION DE CONTRATOS</h1>
-              <p>Módulo de Búsqueda, Filtrado y Auditoría</p>
+              <h1>GESTIÓN DE CONTRATOS</h1>
+              <p>Módulo de Búsqueda, Filtrado y Auditoría (MySQL)</p>
             </div>
             <button className="btn-primary" onClick={handleCreateClick}>
-              <Plus size={18} /> Nuevo Contrato
+              <Plus size={20} /> Nuevo Contrato
             </button>
           </header>
 
-          <div className="white-panel">
-            <div className="filters-header">
-              <Filter size={16} color="#4318FF"/> <span>Búsqueda Avanzada</span>
-            </div>
-            
-            <div className="filters-row">
-              <div className="filter-item">
-                <label>Nro. Contrato</label>
-                <input type="text" name="numero" placeholder="Ej: CTR-2026..." value={filters.numero} onChange={handleFilterChange}/>
-              </div>
-              <div className="filter-item">
-                <label>Profesional</label>
-                <input type="text" name="profesional" placeholder="Nombre..." value={filters.profesional} onChange={handleFilterChange}/>
-              </div>
-              <div className="filter-item">
-                <label>Administrador</label>
-                <input type="text" name="admin" placeholder="Admin. contrato..." value={filters.admin} onChange={handleFilterChange}/>
-              </div>
-              <div className="filter-item">
-                <label>Dirección</label>
-                <select name="direccion" onChange={handleFilterChange} value={filters.direccion}>
-                    <option value="">Todas las Direcciones</option>
-                    {DIRECCIONES_LIST.map((dir, index) => (
-                        <option key={index} value={dir}>{dir}</option>
+         {/* --- BUSCADOR --- */}
+          <div className="filters-bar">
+            <div className="search-bar">
+              <Search size={18} />
+              <input 
+                type="text" 
+                placeholder={`Buscar por ${filterType === 'Todos' ? 'todo...' : filterType.toLowerCase() + '...'}`}
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
+              
+              <div className="filter-dropdown-container">
+                <button 
+                  className={`btn-filter-toggle ${showFilterMenu ? 'active' : ''}`}
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                >
+                  <Filter size={16} />
+                  <span>{filterType}</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                {showFilterMenu && (
+                  <div className="filter-menu fade-in">
+                    <div className="filter-menu-header">Filtrar por:</div>
+                    {['Todos', 'Nro. Contrato', 'Profesional', 'Admin', 'Dirección'].map((opcion) => (
+                      <button 
+                        key={opcion}
+                        className={`filter-option ${filterType === opcion ? 'selected' : ''}`}
+                        onClick={() => { setFilterType(opcion); setShowFilterMenu(false); }}
+                      >
+                        {opcion} {filterType === opcion && <Check size={14}/>}
+                      </button>
                     ))}
-                </select>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -250,26 +335,20 @@ const ContratosPage = () => {
               </thead>
               <tbody>
                 {filteredContratos.length === 0 ? (
-                    <tr><td colSpan={6} style={{textAlign:'center', padding:'40px', color:'#A3AED0'}}>No se encontraron contratos.</td></tr>
+                    <tr><td colSpan={6} style={{textAlign:'center', padding:'40px', color:'#94A3B8'}}>No se encontraron contratos.</td></tr>
                 ) : (
                     filteredContratos.map((c) => (
                         <tr key={c.id}>
                             <td className="highlight-cell">{c.numeroContrato}</td>
-                            <td><div className="user-cell"><User size={16} color="#A3AED0"/> {c.nombreProfesional}</div></td>
-                            <td style={{fontSize:'0.85rem', maxWidth:'300px', lineHeight:'1.5', color:'#64748b'}}>{c.direccion}</td>
+                            <td><div className="user-cell"><User size={18} className="label-icon"/> {c.nombreProfesional}</div></td>
+                            <td style={{fontSize:'0.85rem', maxWidth:'250px', lineHeight:'1.4'}}>{c.direccion}</td>
                             <td>{c.adminContrato}</td>
                             <td><span className={`status-badge status-${c.estado.toLowerCase()}`}>{c.estado}</span></td>
                             <td>
                                 <div className="actions-cell">
-                                    <button className="btn-action" onClick={() => {setSelectedContrato(c); setView('detail');}} title="Ver Expediente">
-                                        <FolderOpen size={16} /> Ver
-                                    </button>
-                                    <button className="btn-edit" onClick={() => handleEditClick(c)} title="Editar Contrato">
-                                        <Pencil size={16} />
-                                    </button>
-                                    <button className="btn-delete" onClick={() => handleDelete(c.id)} title="Eliminar Contrato">
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <button className="btn-icon view" onClick={() => {setSelectedContrato(c); setView('detail');}} title="Ver Expediente"><FolderOpen size={18}/></button>
+                                    <button className="btn-icon edit" onClick={() => handleEditClick(c)} title="Editar"><Pencil size={18}/></button>
+                                    <button className="btn-icon delete" onClick={() => handleDelete(c.id)} title="Eliminar"><Trash2 size={18}/></button>
                                 </div>
                             </td>
                         </tr>
@@ -281,174 +360,183 @@ const ContratosPage = () => {
         </div>
       )}
 
-      {/* === VISTA FORMULARIO (CREAR / EDITAR) === */}
+      {/* === VISTA FORMULARIO === */}
       {view === 'form' && (
-        <div className="white-panel content-fade-in" style={{maxWidth: '1000px', margin: '0 auto'}}>
-          <div className="form-header-row">
-             <button className="btn-back" onClick={() => setView('list')}><ArrowLeft size={20} /> Regresar</button>
-             <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center', marginBottom: '40px', minHeight: '60px' }}>
-                <div style={{ position: 'absolute', left: '40%', transform: 'translateX(-50%)', textAlign: 'center', width: 'max-content', pointerEvents: 'none' }}>
-                    <h2 style={{ fontSize: '1.9rem', fontWeight: '900', color: '#00157aff', margin: 0, letterSpacing: '-0.5px', pointerEvents: 'auto' }}>
-                        {isEditing ? 'Modificar Contrato' : 'Nuevo Contrato'}
-                    </h2>
-                    <div style={{ width: '150px', height: '4px', backgroundColor: '#4318FF', borderRadius: '10px', margin: '8px auto 0' }}></div>
-                </div>
-             </div>
-          </div>
-          
-          <form onSubmit={handleSave}>
-             <div className="form-grid-2-col">
-                <div className="form-item">
-                    <label>Número de Contrato</label>
-                    <input 
-                        type="text" 
-                        name="numeroContrato" 
-                        required 
-                        value={formData.numeroContrato || ''} 
-                        onChange={handleInputChange} 
-                        placeholder="Ej: CTR-2026-001"
-                    />
-                </div>
-                
-                {/* SELECTOR DE USUARIOS */}
-                <div className="form-item">
-                    <label>Profesional (Usuario Contratado)</label>
-                    <select 
-                        name="nombreProfesional" 
-                        required 
-                        value={formData.nombreProfesional || ''} 
-                        onChange={handleInputChange} 
-                        className="custom-select"
-                    >
-                        <option value="">Seleccione un usuario...</option>
-                        {contratadosList.map(user => (
-                            <option key={user.id} value={user.nombre}>{user.nombre}</option>
-                        ))}
-                    </select>
-                    {contratadosList.length === 0 && (
-                        <small style={{color: 'red', marginTop: '5px', display: 'block'}}>
-                            * No hay usuarios con rol "Contratado".
-                        </small>
-                    )}
+        <div className="form-center-wrapper fade-in-up">
+            <div className="form-box">
+                <div className="form-top-bar">
+                    <button className="btn-back-circle" onClick={() => setView('list')} title="Volver">
+                        <ArrowLeft size={24} />
+                    </button>
+                    <div className="form-headings">
+                        <h2>{isEditing ? 'Modificar Contrato' : 'Registrar Nuevo Contrato'}</h2>
+                        <p>Complete la ficha técnica contractual.</p>
+                    </div>
                 </div>
 
-                <div className="form-item">
-                    <label>Administrador del Contrato</label>
-                    <input 
-                        type="text" 
-                        name="adminContrato" 
-                        required 
-                        value={formData.adminContrato || ''} 
-                        onChange={handleInputChange} 
-                        placeholder="Funcionario responsable"
-                    />
-                </div>
-                <div className="form-item">
-                    <label>Dirección Solicitante</label>
-                   <select 
-                        name="direccion" 
-                        required 
-                        value={formData.direccion || ''} 
-                        onChange={handleInputChange}
-                    >
-                      <option value="">Seleccione...</option>
-                      {DIRECCIONES_LIST.map((dir, index) => (
-                        <option key={index} value={dir}>{dir}</option>
-                      ))}
-                   </select>
-                </div>
-                <div className="form-item">
-                    <label>Fecha Inicio</label>
-                    <input 
-                        type="date" 
-                        name="fechaInicio" 
-                        required 
-                        value={formData.fechaInicio || ''} 
-                        onChange={handleInputChange}
-                    />
-                </div>
-                <div className="form-item">
-                    <label>Fecha Fin</label>
-                    <input 
-                        type="date" 
-                        name="fechaFin" 
-                        required 
-                        value={formData.fechaFin || ''} 
-                        onChange={handleInputChange}
-                    />
-                </div>
-             </div>
-             <div className="form-actions-right">
-                <button type="submit" className="btn-primary">
-                    <Save size={18} /> {isEditing ? 'Guardar Cambios' : 'Guardar Contrato'}
-                </button>
-             </div>
-          </form>
+                <form onSubmit={handleSave} className="smart-form">
+                    <div className="form-row">
+                        <div className="input-field-container">
+                            <label className="field-label">
+                                <FileText size={16} className="label-icon"/> Número de Contrato
+                            </label>
+                            <input 
+                                type="text" name="numeroContrato" 
+                                required className="modern-input"
+                                value={formData.numeroContrato || ''} 
+                                onChange={handleInputChange} 
+                                placeholder="Ej: CTR-2026-001"
+                            />
+                        </div>
+                        <div className="input-field-container">
+                            <label className="field-label">
+                                <User size={16} className="label-icon"/> Profesional Asignado
+                            </label>
+                            <div className="select-wrapper">
+                                <select 
+                                    name="nombreProfesional" 
+                                    required className="modern-select"
+                                    value={formData.nombreProfesional || ''} 
+                                    onChange={handleInputChange} 
+                                >
+                                    <option value="">Seleccione un usuario...</option>
+                                    {contratadosList.map(user => (
+                                        <option key={user.id} value={user.nombre}>{user.nombre}</option>
+                                    ))}
+                                </select>
+                                <ChevronRight size={16} className="select-arrow"/>
+                            </div>
+                            {contratadosList.length === 0 && (
+                                <small style={{color:'#EF4444', marginTop:'4px', fontSize:'0.8rem'}}>* No hay usuarios 'Contratados' registrados.</small>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="form-row">
+                        <div className="input-field-container">
+                            <label className="field-label">
+                                <Shield size={16} className="label-icon"/> Admin. del Contrato
+                            </label>
+                            <input 
+                                type="text" name="adminContrato" 
+                                required className="modern-input"
+                                value={formData.adminContrato || ''} 
+                                onChange={handleInputChange} 
+                                placeholder="Nombre del funcionario"
+                            />
+                        </div>
+                        <div className="input-field-container">
+                            <label className="field-label">
+                                <Briefcase size={16} className="label-icon"/> Dirección Solicitante
+                            </label>
+                            <div className="select-wrapper">
+                                <select name="direccion" required className="modern-select" value={formData.direccion || ''} onChange={handleInputChange}>
+                                    <option value="">Seleccione...</option>
+                                    {DIRECCIONES_LIST.map((dir, index) => (
+                                        <option key={index} value={dir}>{dir}</option>
+                                    ))}
+                                </select>
+                                <ChevronRight size={16} className="select-arrow"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="form-row">
+                        <div className="input-field-container">
+                            <label className="field-label">
+                                <Calendar size={16} className="label-icon"/> Fecha Inicio
+                            </label>
+                            <input 
+                                type="date" name="fechaInicio" 
+                                required className="modern-input"
+                                value={formData.fechaInicio || ''} 
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                        <div className="input-field-container">
+                            <label className="field-label">
+                                <Calendar size={16} className="label-icon"/> Fecha Fin
+                            </label>
+                            <input 
+                                type="date" name="fechaFin" 
+                                required className="modern-input"
+                                value={formData.fechaFin || ''} 
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-actions-bar">
+                        <button type="button" className="btn-cancelar" onClick={() => setView('list')}>
+                            Cancelar
+                        </button>
+                        <button type="submit" className="btn-guardar">
+                            <Save size={18} /> {isEditing ? 'Guardar Cambios' : 'Registrar Contrato'}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
       )}
 
       {/* === VISTA DETALLE === */}
       {view === 'detail' && selectedContrato && (
-        <div className="detail-view content-slide-up">
-          <button className="btn-back" onClick={() => setView('list')}>
-            <ArrowLeft size={18} /> Volver al Listado
-          </button>
-          <br />
+        <div className="detail-view fade-in">
+            <div className="form-top-bar" style={{marginBottom:'20px'}}>
+                <button className="btn-back-circle" onClick={() => setView('list')}>
+                    <ArrowLeft size={24} />
+                </button>
+                <div className="form-headings">
+                    <h2>Expediente Digital</h2>
+                    <p>Gestión documental del contrato.</p>
+                </div>
+            </div>
 
           <div className="contract-header">
             <div className="header-info">
                 <h2>{selectedContrato.numeroContrato}</h2>
-                <span className="subtitle">{selectedContrato.nombreProfesional}</span>
+                <div className="subtitle"><User size={18}/> {selectedContrato.nombreProfesional}</div>
             </div>
             <div className="header-stats">
                 <div className="stat-box">
                     <label>Admin. Contrato</label>
                     <span>{selectedContrato.adminContrato}</span>
                 </div>
-                <div className="stat-box" style={{marginLeft:'40px'}}>
+                <div className="stat-box">
                     <label>Estado</label>
-                    <span className={`status-text ${selectedContrato.estado.toLowerCase()}`}>{selectedContrato.estado}</span>
+                    <span className="status-text">{selectedContrato.estado}</span>
                 </div>
             </div>
           </div>
 
-          <h3 className="section-title">Expediente Digital</h3>
-          
           <div className="documents-grid">
             {DOC_CATEGORIES.map((cat, index) => {
               const filesInCat = allDocuments.filter(d => d.contratoId === selectedContrato.id && d.categoria === cat);
               const hasFiles = filesInCat.length > 0;
 
               return (
-                <div key={index} className="doc-card" style={{borderColor: hasFiles ? '#4318FF' : 'transparent'}}>
+                <div key={index} className="doc-card" style={{borderColor: hasFiles ? '#BFDBFE' : 'transparent'}}>
                   <div className="doc-info">
-                      <h4 style={{color: hasFiles ? '#4318FF' : '#2B3674'}}>{cat}</h4>
-                      <p style={{color: hasFiles ? '#05CD99' : '#A3AED0'}}>{filesInCat.length} archivos</p>
+                      <h4 style={{color: hasFiles ? '#2563EB' : '#1E293B'}}>{cat}</h4>
+                      <p style={{color: hasFiles ? '#166534' : '#94A3B8'}}>{filesInCat.length} archivos</p>
                   </div>
                   <div className="files-list-area">
-                    <br />  
                       {hasFiles ? (
                           filesInCat.map(file => (
                               <div key={file.id} className="file-item-row">
                                   <div style={{display:'flex', alignItems:'center', gap:'10px', overflow:'hidden'}}>
-                                    <FileText size={18} color="#4318FF"/>
-                                    <span style={{fontSize:'0.85rem', color:'#2B3674', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'180px'}} title={file.nombreArchivo}>
+                                    <FileText size={18} color="#2563EB"/>
+                                    <span style={{fontSize:'0.85rem', color:'#334155', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'180px'}} title={file.nombreArchivo}>
                                         {file.nombreArchivo}
                                     </span>
                                   </div>
-                                  <button 
-                                    onClick={() => handleDownload(file.nombreArchivo)}
-                                    title="Descargar"
-                                    style={{background:'none', border:'none', cursor:'pointer', color:'#05CD99'}}
-                                  >
-                                      <Download size={20} />
+                                  <button onClick={() => handleDownload(file.nombreArchivo)} title="Descargar" style={{background:'none', border:'none', cursor:'pointer', color:'#059669'}}>
+                                    <Download size={18} />
                                   </button>
                               </div>
                           ))
                       ) : (
-                          <div className="empty-state">
-                              <span>Carpeta vacía</span>
-                          </div>
+                          <div className="empty-state">Carpeta vacía</div>
                       )}
                   </div>
                 </div>

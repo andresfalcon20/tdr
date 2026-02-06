@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import '../styles/HistorialPage.css'; 
 
-// Interface del Historial
 interface LogEntry {
     id: number;
     accion: 'Creación' | 'Edición' | 'Eliminación' | 'Sistema';
@@ -22,67 +21,26 @@ const HistorialPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterEntidad, setFilterEntidad] = useState('Todos');
 
-    const [logs, setLogs] = useState<LogEntry[]>(() => {
-        const saved = localStorage.getItem('sistema_historial');
-        return saved ? JSON.parse(saved) : [];
-    });
+    // Estado local para los logs
+    const [logs, setLogs] = useState<LogEntry[]>([]);
 
-    // Cargar datos simulados DETALLADOS si está vacío
     useEffect(() => {
-        if (logs.length === 0) {
-            const users = JSON.parse(localStorage.getItem('sistema_usuarios') || '[]');
-            const contracts = JSON.parse(localStorage.getItem('sistema_contratos') || '[]');
-            
-            const dummyLogs: LogEntry[] = [];
-            
-            // Simulación de creación de usuarios
-            if(users.length > 0) {
-                dummyLogs.push({
-                    id: 1, accion: 'Creación', entidad: 'Usuario',
-                    detalle: `Registro inicial de usuario: ${users[0].nombre} con rol "${users[0].rol}".`,
-                    fecha: new Date(Date.now() - 86400000 * 2).toISOString(), // Hace 2 días
-                    usuario: 'Admin General'
-                });
+        const cargarHistorial = () => {
+            try {
+                // LEER DIRECTAMENTE DEL STORAGE COMPARTIDO
+                const data = JSON.parse(localStorage.getItem('sistema_historial') || '[]');
+                if (Array.isArray(data)) {
+                    setLogs(data);
+                }
+            } catch (error) {
+                console.error("Error cargando historial:", error);
             }
+        };
 
-            // Simulación de creación de contratos
-            if(contracts.length > 0) {
-                dummyLogs.push({
-                    id: 2, accion: 'Creación', entidad: 'Contrato',
-                    detalle: `Alta de nuevo contrato ${contracts[0].numeroContrato} asignado a ${contracts[0].nombreProfesional}.`,
-                    fecha: new Date(Date.now() - 86400000).toISOString(), // Hace 1 día
-                    usuario: 'Admin General'
-                });
-            }
-
-            // --- EJEMPLOS DE EDICIONES ESPECÍFICAS ---
-            dummyLogs.push({
-                id: 3, accion: 'Edición', entidad: 'TDR',
-                detalle: 'Actualización de presupuesto: $5,000.00 -> $6,500.00 en TDR-2026-001.',
-                fecha: new Date(Date.now() - 3600000 * 4).toISOString(), // Hace 4 horas
-                usuario: 'Andres Falcon'
-            });
-
-            dummyLogs.push({
-                id: 4, accion: 'Edición', entidad: 'Contrato',
-                detalle: 'Cambio de estado: "Pendiente" -> "Activo" en Contrato CTR-2026-055.',
-                fecha: new Date(Date.now() - 3600000 * 2).toISOString(), // Hace 2 horas
-                usuario: 'Washo Betancourt'
-            });
-
-            dummyLogs.push({
-                id: 5, accion: 'Eliminación', entidad: 'Usuario',
-                detalle: 'Eliminación permanente del usuario "Juan Perez" del área Financiera.',
-                fecha: new Date().toISOString(),
-                usuario: 'Admin General'
-            });
-            
-            // Ordenar por fecha reciente (descendente)
-            dummyLogs.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-            
-            setLogs(dummyLogs);
-            localStorage.setItem('sistema_historial', JSON.stringify(dummyLogs));
-        }
+        cargarHistorial();
+        // Listener para actualizar si cambia en otra pestaña (opcional)
+        window.addEventListener('storage', cargarHistorial);
+        return () => window.removeEventListener('storage', cargarHistorial);
     }, []);
 
     const getIconByEntidad = (entidad: string) => {
@@ -97,10 +55,10 @@ const HistorialPage = () => {
 
     const getColorByAccion = (accion: string) => {
         switch(accion) {
-            case 'Creación': return '#05CD99'; // Verde Esmeralda
-            case 'Edición': return '#4318FF'; // Azul Eléctrico
-            case 'Eliminación': return '#E31A1A'; // Rojo Alerta
-            case 'Sistema': return '#FFB547'; // Naranja
+            case 'Creación': return '#05CD99';
+            case 'Edición': return '#4318FF';
+            case 'Eliminación': return '#E31A1A';
+            case 'Sistema': return '#FFB547';
             default: return '#A3AED0';
         }
     };
@@ -113,6 +71,7 @@ const HistorialPage = () => {
     });
 
     const formatDate = (dateString: string) => {
+        if (!dateString) return "Fecha desconocida";
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return "Fecha inválida";
         
@@ -125,8 +84,8 @@ const HistorialPage = () => {
 
     const clearHistory = () => {
         if(window.confirm("¿Estás seguro de borrar todo el historial? Esta acción no se puede deshacer.")) {
+            localStorage.setItem('sistema_historial', '[]');
             setLogs([]);
-            localStorage.removeItem('sistema_historial');
         }
     };
 
@@ -138,7 +97,7 @@ const HistorialPage = () => {
                 <div className="historial-header">
                     <div className="historial-title">
                         <button className="btn-back" onClick={() => navigate('/admin')}>
-                            <ArrowLeft size={18} /> Volver al Dashboard
+                            <ArrowLeft size={18} /> Volver
                         </button>
                         <h1>Historial del Sistema</h1>
                         <p>Registro detallado de auditoría, cambios y movimientos.</p>
@@ -151,17 +110,17 @@ const HistorialPage = () => {
                 {/* FILTROS */}
                 <div className="historial-filters-card">
                     <div className="historial-search">
-                        <Search size={20} color="#A3AED0"/>
+                        <Search size={20} />
                         <input 
                             type="text" 
-                            placeholder="Buscar por detalle (ej: presupuesto, estado) o usuario..." 
+                            placeholder="Buscar por detalle o usuario..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     
                     <div className="historial-select-group">
-                        <Filter size={20} color="#4318FF"/>
+                        <Filter size={18} />
                         <select 
                             className="historial-select"
                             value={filterEntidad}
@@ -176,7 +135,7 @@ const HistorialPage = () => {
                     </div>
                 </div>
 
-                {/* LISTA DE HISTORIAL */}
+                {/* LISTA */}
                 <div className="history-timeline-container">
                     {filteredLogs.length === 0 ? (
                         <div className="empty-history">
@@ -189,10 +148,8 @@ const HistorialPage = () => {
                             
                             return (
                                 <div key={log.id} className="history-card-item">
-                                    {/* Decorador lateral */}
                                     <div className="history-decorator" style={{background: colorAccion}}></div>
                                     
-                                    {/* Icono */}
                                     <div className="history-icon-box" style={{color: colorAccion, background: `${colorAccion}15`}}>
                                         {getIconByEntidad(log.entidad)}
                                     </div>
@@ -208,7 +165,6 @@ const HistorialPage = () => {
                                                 </span>
                                             </div>
                                             
-                                            {/* Detalle más legible */}
                                             <h4 className="history-title" style={{whiteSpace: 'pre-wrap', lineHeight: '1.5'}}>
                                                 {log.detalle}
                                             </h4>

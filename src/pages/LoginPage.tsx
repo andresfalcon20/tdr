@@ -1,29 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/LoginInamhi.css'; 
-import logoInamhi from '../assets/lgo.png';
+import logoInamhi from '../assets/lgo.png'; // Asegúrate que la ruta sea correcta
 
 // --- ICONOS ---
-const AdminIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l8 4v6c0 5.5-3.8 10.7-8 12-4.2-1.3-8-6.5-8-12V6l8-4z"/><path d="M12 22V6"/></svg>
-);
-const TechIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-);
-const ExternalIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-);
+const AdminIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l8 4v6c0 5.5-3.8 10.7-8 12-4.2-1.3-8-6.5-8-12V6l8-4z"/><path d="M12 22V6"/></svg>);
+const TechIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>);
+const ExternalIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>);
 
 type Role = 'admin' | 'tecnico' | 'externo';
-
-// Interfaz para leer los usuarios guardados
-interface StoredUser {
-    id: number;
-    nombre: string;
-    email: string;
-    rol: 'Administrador' | 'Técnico' | 'Contratado';
-    area: string;
-}
 
 const LoginPage = () => {
     const [role, setRole] = useState<Role>('admin');
@@ -38,74 +23,60 @@ const LoginPage = () => {
         setLoading(true);
         setError('');
 
-        setTimeout(() => {
-            let loginExitoso = false;
-            let rutaDestino = '/';
-            let nombreUsuario = '';
+        // --- 1. INTENTO DE LOGIN CON BACKEND (MYSQL) ---
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
 
-            // 1. LÓGICA PARA ADMINISTRADOR (QUEMADO)
-            if (role === 'admin') {
-                if (email === "admin@inamhi.gob.ec" && password === "admin") {
-                    loginExitoso = true;
-                    rutaDestino = '/admin'; // Ruta del Dashboard Admin
-                    nombreUsuario = 'Administrador General';
-                } else {
-                    setError('Credenciales de Admin incorrectas');
-                }
-            } 
-            
-            // 2. LÓGICA PARA TÉCNICOS Y EXTERNOS (BUSCAR EN LOCALSTORAGE)
-            else {
-                // Recuperar usuarios creados
-                const storedUsersStr = localStorage.getItem('sistema_usuarios');
-                const storedUsers: StoredUser[] = storedUsersStr ? JSON.parse(storedUsersStr) : [];
+            const data = await response.json();
 
-                // Definir qué rol buscamos en la base de datos según la pestaña activa
-                const rolBuscado = role === 'tecnico' ? 'Técnico' : 'Contratado';
-
-                // Buscar el usuario por email y rol
-                const userFound = storedUsers.find(u => 
-                    u.email.toLowerCase() === email.toLowerCase() && 
-                    u.rol === rolBuscado
-                );
-
-                if (userFound) {
-                    // AQUÍ VALIDAMOS LA CONTRASEÑA (Cualquiera no vacía sirve por ahora)
-                    if (password.length > 0) {
-                        loginExitoso = true;
-                        nombreUsuario = userFound.nombre;
-                        
-                        // --- AQUÍ ESTABA EL ERROR, AHORA REDIRIGE BIEN ---
-                        if (role === 'tecnico') {
-                            rutaDestino = '/tecnico';
-                        } else {
-                            // Redirigir al nuevo Portal del Contratado
-                            rutaDestino = '/portal-contratado'; 
-                        }
-                    } else {
-                        setError('Ingrese su contraseña');
-                    }
-                } else {
-                    setError(`Usuario no encontrado o no tiene el rol de ${rolBuscado}`);
-                }
-            }
-
-            // --- RESULTADO FINAL ---
-            if (loginExitoso && !error) {
-                // Guardar sesión
-                localStorage.setItem('token', `TOKEN-${role.toUpperCase()}-${Date.now()}`);
-                localStorage.setItem('role', role);
-                localStorage.setItem('userName', nombreUsuario);
-                
-                navigate(rutaDestino);
-            } else if (!error) {
-                setError('Error de autenticación');
-                setLoading(false);
+            if (data.success) {
+                // ¡ÉXITO! Viene de la base de datos
+                iniciarSesion(data.user);
+                return;
             } else {
-                setLoading(false);
+                // Si el backend dice que no, revisamos si es el Admin Quemado
+                if (verificarAdminQuemado()) return;
+                
+                // Si no es ninguno, mostramos el error del backend
+                setError(data.message || 'Credenciales inválidas');
             }
 
-        }, 800);
+        } catch (error) {
+            console.log("Error conectando al servidor, intentando modo local...");
+            // Si el servidor está apagado, revisamos si es el Admin Quemado
+            if (verificarAdminQuemado()) return;
+            setError('Error de conexión con el servidor');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const verificarAdminQuemado = () => {
+        if (role === 'admin' && email === 'admin@inamhi.gob.ec' && password === 'admin') {
+            iniciarSesion({ 
+                nombre: 'Admin General (Modo Seguro)', 
+                rol: 'Administrador', 
+                email: 'admin@inamhi.gob.ec' 
+            });
+            return true;
+        }
+        return false;
+    };
+
+    const iniciarSesion = (user: any) => {
+        // Guardamos la sesión en el navegador
+        localStorage.setItem('token', `TOKEN-${Date.now()}`);
+        localStorage.setItem('role', role); // Guardamos el rol seleccionado
+        localStorage.setItem('userName', user.nombre);
+        
+        // Redirigimos según el rol
+        if (role === 'admin') navigate('/admin');
+        else if (role === 'tecnico') navigate('/tecnico');
+        else navigate('/portal-contratado');
     };
 
     const handleRoleChange = (newRole: Role) => {
@@ -128,25 +99,13 @@ const LoginPage = () => {
 
                 {/* Selector de Roles */}
                 <div className="role-switcher">
-                    <button 
-                        type="button"
-                        className={`role-btn ${role === 'admin' ? 'active' : ''}`}
-                        onClick={() => handleRoleChange('admin')} 
-                    >
+                    <button type="button" className={`role-btn ${role === 'admin' ? 'active' : ''}`} onClick={() => handleRoleChange('admin')}>
                         <AdminIcon /> <span>Administrador</span>
                     </button>
-                    <button 
-                        type="button"
-                        className={`role-btn ${role === 'tecnico' ? 'active' : ''}`}
-                        onClick={() => handleRoleChange('tecnico')}
-                    >
+                    <button type="button" className={`role-btn ${role === 'tecnico' ? 'active' : ''}`} onClick={() => handleRoleChange('tecnico')}>
                         <TechIcon /> <span>Técnico</span>
                     </button>
-                    <button 
-                        type="button"
-                        className={`role-btn ${role === 'externo' ? 'active' : ''}`}
-                        onClick={() => handleRoleChange('externo')}
-                    >
+                    <button type="button" className={`role-btn ${role === 'externo' ? 'active' : ''}`} onClick={() => handleRoleChange('externo')}>
                         <ExternalIcon /> <span>Contratado</span>
                     </button>
                 </div>
@@ -154,22 +113,16 @@ const LoginPage = () => {
                 <form onSubmit={handleLogin} className="login-form">
                     <div className="input-group">
                         <input 
-                            type="text" 
-                            required 
-                            placeholder=" " 
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            type="text" required placeholder=" " 
+                            value={email} onChange={(e) => setEmail(e.target.value)}
                         />
                         <label>Correo electrónico</label>
                     </div>
 
                     <div className="input-group">
                         <input 
-                            type="password" 
-                            required 
-                            placeholder=" " 
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            type="password" required placeholder=" " 
+                            value={password} onChange={(e) => setPassword(e.target.value)}
                         />
                         <label>Contraseña</label>
                     </div>
@@ -177,7 +130,7 @@ const LoginPage = () => {
                     {error && <div className="error-message">⚠️ {error}</div>}
 
                     <button type="submit" className="submit-btn" disabled={loading}>
-                        {loading ? 'Verificando...' : 'Iniciar Sesión'}
+                        {loading ? 'Conectando...' : 'Iniciar Sesión'}
                     </button>
                 </form>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-    Plus, Search, Key, Trash2, ArrowLeft, Pencil, X, Save, CheckCircle
+    Plus, Search, Key, Trash2, ArrowLeft, Pencil, X, Save, CheckCircle, 
+    User, Briefcase, Mail, Shield, ChevronRight, LayoutGrid
 } from 'lucide-react';
 import '../styles/UsuariosStyles.css';
 
@@ -28,48 +29,71 @@ interface Usuario {
     password?: string;
 }
 
-const INITIAL_DATA: Usuario[] = [
-    { id: 1, nombre: 'Admin General', email: 'admin@inamhi.ec', rol: 'Administrador', area: 'Gerencia' },
-    { id: 2, nombre: 'Andres Falcon', email: 'andres@inamhi.gob.ec', rol: 'Contratado', area: 'Dirección Hidrometeorológica' },
-    { id: 3, nombre: 'Washo Betancourt', email: 'washo@inamhi.gob.ec', rol: 'Técnico', area: 'Tecnologías Tics' },
-];
+interface Notification {
+    show: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info';
+}
+
+const ADMIN_FIJO: Usuario = { 
+    id: 1, 
+    nombre: 'Admin General', 
+    email: 'admin@inamhi.gob.ec', 
+    rol: 'Administrador', 
+    area: 'TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN', 
+    password: 'admin' 
+};
 
 const UsuariosPage = () => {
     // --- ESTADOS ---
     const [view, setView] = useState<'list' | 'form'>('list');
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    
-    // Estado del formulario
     const [formData, setFormData] = useState<Partial<Usuario>>({});
-    
-    // Lista de usuarios
-    const [users, setUsers] = useState<Usuario[]>(() => {
-        const saved = localStorage.getItem('sistema_usuarios');
-        return saved ? JSON.parse(saved) : INITIAL_DATA;
-    });
+    const [notification, setNotification] = useState<Notification>({ show: false, message: '', type: 'info' });
 
-    // Estados para el Modal de Contraseña
+    // 1. Iniciamos con el Admin por defecto
+    const [users, setUsers] = useState<Usuario[]>([ADMIN_FIJO]);
+
     const [showPassModal, setShowPassModal] = useState(false);
     const [selectedUserPass, setSelectedUserPass] = useState<Usuario | null>(null);
     const [newPassword, setNewPassword] = useState('');
 
-    useEffect(() => {
-        localStorage.setItem('sistema_usuarios', JSON.stringify(users));
-    }, [users]);
+    // --- FUNCIÓN HELPER PARA HISTORIAL ---
+    const registrarHistorial = async (accion: string, detalle: string) => {
+        try {
+            await fetch('/api/historial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    accion,
+                    entidad: 'Usuario',
+                    detalle,
+                    usuario: 'Administrador' // O el nombre del usuario logueado
+                })
+            });
+        } catch (error) {
+            console.error("No se pudo guardar en el historial:", error);
+        }
+    };
 
-    // --- FUNCIÓN PARA GUARDAR EN EL HISTORIAL ---
-    const registrarHistorial = (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
-        const historial = JSON.parse(localStorage.getItem('sistema_historial') || '[]');
-        const nuevoLog = {
-            id: Date.now(),
-            accion: accion,
-            entidad: 'Usuario',
-            detalle: detalle,
-            fecha: new Date().toISOString(),
-            usuario: 'Admin General' 
-        };
-        localStorage.setItem('sistema_historial', JSON.stringify([nuevoLog, ...historial]));
+    // 2. Cargamos usuarios desde BD (y combinamos con el Admin fijo)
+    useEffect(() => {
+        fetch('/api/usuarios')
+            .then(res => res.json())
+            .then(data => {
+                // Filtramos para evitar duplicar al admin si ya viene de la BD
+                const usuariosDB = data.filter((u: Usuario) => u.email !== 'admin@inamhi.gob.ec');
+                setUsers([ADMIN_FIJO, ...usuariosDB]);
+            })
+            .catch(err => {
+                console.error("Error cargando usuarios (modo offline):", err);
+            });
+    }, []);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        setNotification({ show: true, message, type });
+        setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
     };
 
     // --- FILTROS ---
@@ -79,23 +103,14 @@ const UsuariosPage = () => {
         u.area.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // --- HELPERS VISUALES ---
-    const getAvatarColor = (name: string) => {
-        const first = name.charAt(0).toUpperCase();
-        if (['A','E','I','O','U'].includes(first)) return 'avatar-blue';
-        if (['B','C','D','F','G'].includes(first)) return 'avatar-green';
-        if (['H','J','K','L','M'].includes(first)) return 'avatar-orange';
-        return 'avatar-purple';
-    };
-
+    // --- HELPERS ---
     const getRoleBadge = (rol: string) => {
-        if (rol === 'Administrador') return <span className="role-badge badge-admin">Admin</span>;
-        if (rol === 'Técnico') return <span className="role-badge badge-tech">Técnico</span>;
-        return <span className="role-badge badge-contract">Contratado</span>;
+        if (rol === 'Administrador') return <span className="role-tag tag-admin">Admin</span>;
+        if (rol === 'Técnico') return <span className="role-tag tag-tech">Técnico</span>;
+        return <span className="role-tag tag-contract">Contratado</span>;
     };
 
-    // --- LÓGICA CRUD ---
-
+    // --- CRUD ---
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
@@ -112,230 +127,333 @@ const UsuariosPage = () => {
         setView('form');
     };
 
-    const handleSave = (e: React.FormEvent) => {
+            
+            const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (isEditing && formData.id) {
-            // Actualizar
-            const updated = users.map(u => u.id === formData.id ? { ...u, ...formData } as Usuario : u);
-            setUsers(updated);
+        
+        try {
+            if (isEditing && formData.id) {
+                // EDITAR
+                const res = await fetch(`/api/usuarios/${formData.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if(res.ok) {
+                    showToast("Usuario actualizado con éxito");
+                    // REGISTRO EN HISTORIAL
+                    registrarHistorial('Edición', `Se actualizaron los datos del usuario: ${formData.nombre}`);
+                }
+            } else {
+                // CREAR
+                const res = await fetch('/api/usuarios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if(res.ok) {
+                    showToast("Usuario registrado correctamente");
+                    // REGISTRO EN HISTORIAL
+                    registrarHistorial('Creación', `Se registró un nuevo usuario: ${formData.nombre} (${formData.rol})`);
+                }
+            }
             
-            // Historial Edición
-            registrarHistorial('Edición', `Se actualizaron los datos del usuario ${formData.nombre}`);
+            // Recargar lista
+            const refresh = await fetch('/api/usuarios');
+            const data = await refresh.json();
+            const usuariosDB = data.filter((u: Usuario) => u.email !== 'admin@inamhi.gob.ec');
+            setUsers([ADMIN_FIJO, ...usuariosDB]);
             
-            alert("Datos de usuario actualizados.");
-        } else {
-            // Crear
-            const newUser = { ...formData, id: Date.now() } as Usuario;
-            setUsers([...users, newUser]);
-            
-            // Historial Creación
-            registrarHistorial('Creación', `Se registró al usuario ${newUser.nombre} con rol ${newUser.rol}`);
-            
-            alert("Usuario creado exitosamente.");
+            setView('list');
+        } catch (error) {
+            console.error(error);
+            showToast("Error de conexión", "error");
         }
-        setView('list');
     };
 
-    const handleDelete = (id: number) => {
-        const userToDelete = users.find(u => u.id === id);
-        if(window.confirm("¿Eliminar este usuario permanentemente?")) {
-            setUsers(users.filter(u => u.id !== id));
-            
-            // Historial Eliminación
-            if (userToDelete) {
-                registrarHistorial('Eliminación', `Se eliminó al usuario ${userToDelete.nombre}`);
+
+    const handleDelete = async (id: number) => {
+        if(window.confirm("¿Confirmar eliminación del usuario?")) {
+            try {
+                // Buscamos el nombre antes de borrarlo para el historial
+                const usuarioABorrar = users.find(u => u.id === id);
+                const nombreBorrado = usuarioABorrar ? usuarioABorrar.nombre : 'Desconocido';
+
+                await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+                
+                setUsers(users.filter(u => u.id !== id));
+                showToast("Usuario eliminado", "info");
+
+                // AGREGAR ESTO:
+                registrarHistorial('Eliminación', `Se eliminó permanentemente al usuario: ${nombreBorrado}`);
+
+            } catch (error) {
+                showToast("Error al eliminar", "error");
             }
         }
     };
+    
 
-    // --- LÓGICA RESET PASSWORD ---
     const openPassModal = (user: Usuario) => {
         setSelectedUserPass(user);
         setNewPassword('');
         setShowPassModal(true);
     };
 
-    const saveNewPassword = () => {
+    const saveNewPassword = async () => {
         if(!selectedUserPass) return;
-        if(newPassword.length < 4) return alert("La contraseña es muy corta.");
-        
-        const updated = users.map(u => u.id === selectedUserPass.id ? {...u, password: newPassword} : u);
-        setUsers(updated);
-        
-        // Historial Cambio Clave
-        registrarHistorial('Edición', `Se restableció la contraseña del usuario ${selectedUserPass.nombre}`);
-        
-        alert(`Contraseña actualizada para ${selectedUserPass.nombre}`);
-        setShowPassModal(false);
-    };
-
-    return (
-        <div className="page-container">
+        if(newPassword.length < 4) {
+            showToast("Contraseña muy corta", "error");
+            return;
+        }
+        try {
+            const updatedUser = { ...selectedUserPass, password: newPassword };
             
-            {/* --- VISTA LISTA --- */}
+            await fetch(`/api/usuarios/${selectedUserPass.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedUser)
+            });
+
+            const updated = users.map(u => u.id === selectedUserPass.id ? updatedUser : u);
+            setUsers(updated);
+            
+            showToast(`Contraseña actualizada`);
+            
+            // AGREGAR ESTO:
+            registrarHistorial('Edición', `Se cambió la contraseña del usuario: ${selectedUserPass.nombre}`);
+
+            setShowPassModal(false);
+        } catch (error) {
+            showToast("Error al actualizar clave", "error");
+        }
+    };
+    
+    return (
+        <div className="users-layout fade-in">
+            
+            {/* NOTIFICACIÓN */}
+            <div className={`notification-toast ${notification.show ? 'visible' : ''} ${notification.type}`}>
+                <div className="toast-icon">
+                    {notification.type === 'success' ? <CheckCircle size={20}/> : <LayoutGrid size={20}/>}
+                </div>
+                <span>{notification.message}</span>
+            </div>
+
+            {/* VISTA: LISTA DE USUARIOS */}
             {view === 'list' && (
-                <>
-                    <header className="page-header">
+                <div className="view-container">
+                    <header className="module-header">
                         <div>
-                            <h1>Gestión de Usuarios</h1>
-                            <p>Administra los roles y permisos del sistema.</p>
+                            <h1 className="page-title">DIRECTORIO DE USUARIOS</h1>
+                            <p className="page-subtitle">Gestiona el acceso y roles del personal institucional</p>
                         </div>
-                        <button className="btn-primary" onClick={handleCreate}>
-                            <Plus size={18} /> Nuevo Usuario
-                        </button>   
+                        <button className="btn-main-action" onClick={handleCreate}>
+                            <Plus size={20} /> Nuevo Usuario
+                        </button>
                     </header>
 
-                    <div className="search-container">
-                        <div className="search-box">
-                            <Search size={18} color="#A3AED0" />
+                    <div className="controls-bar">
+                        <div className="search-wrapper">
+                            <Search size={18} className="search-icon" />
                             <input 
-                                type="text" className="search-input" 
-                                placeholder="Buscar usuario por nombre, email o área..." 
-                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                type="text" 
+                                placeholder="Buscar por nombre, cargo o email..." 
+                                value={searchTerm} 
+                                onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                        </div>
+                        <div className="counter-pill">
+                            {users.length} Registros Activos
                         </div>
                     </div>
 
-                    <div className="white-card" style={{ overflowX: 'auto' }}>
-                        <table className="custom-table">
+                    <div className="table-wrapper">
+                        <table className="modern-table">
                             <thead>
                                 <tr>
-                                    <th>Usuario</th>
-                                    <th>Rol Asignado</th>
-                                    <th>Dirección / Área</th>
-                                    <th>Acciones</th>
+                                    <th style={{ width: '35%' }}>Colaborador</th>
+                                    <th style={{ width: '15%' }}>Rol</th>
+                                    <th style={{ width: '35%' }}>Área / Dirección</th>
+                                    <th style={{ width: '15%' }} className="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredUsers.map(u => (
                                     <tr key={u.id}>
                                         <td>
-                                            <div className="user-info-cell">
-                                                <div className={`user-avatar ${getAvatarColor(u.nombre)}`}>
-                                                    {u.nombre.charAt(0)}
-                                                </div>
-                                                <div className="user-details-text">
-                                                    <span className="user-name">{u.nombre}</span>
-                                                    <span className="user-email">{u.email}</span>
+                                            <div className="collab-info">
+                                                <div className="avatar-initials">{u.nombre.charAt(0)}</div>
+                                                <div>
+                                                    <div className="collab-name">{u.nombre}</div>
+                                                    <div className="collab-email">{u.email}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td>{getRoleBadge(u.rol)}</td>
-                                        <td style={{color:'#475569', fontSize:'0.9rem'}}>{u.area}</td>
+                                        <td><span className="area-text">{u.area}</span></td>
                                         <td>
-                                            <div className="actions-row">
-                                                <button className="action-btn btn-edit" onClick={() => handleEdit(u)} title="Editar Datos">
-                                                    <Pencil size={16}/>
-                                                </button>
-                                                <button className="action-btn btn-key" onClick={() => openPassModal(u)} title="Resetear Clave">
-                                                    <Key size={16}/>
-                                                </button>
-                                                <button className="action-btn btn-delete" onClick={() => handleDelete(u.id)} title="Eliminar">
-                                                    <Trash2 size={16}/>
-                                                </button>
-                                            </div>
+                                            {/* OJO: Aquí ocultamos acciones para el Admin General */}
+                                            {u.email !== 'admin@inamhi.gob.ec' && (
+                                                <div className="actions-group">
+                                                    <button onClick={() => handleEdit(u)} className="btn-icon edit" title="Editar"><Pencil size={18}/></button>
+                                                    <button onClick={() => openPassModal(u)} className="btn-icon key" title="Contraseña"><Key size={18}/></button>
+                                                    <button onClick={() => handleDelete(u.id)} className="btn-icon delete" title="Eliminar"><Trash2 size={18}/></button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredUsers.length === 0 && <tr><td colSpan={4} className="empty-row">No se encontraron usuarios.</td></tr>}
+                                {filteredUsers.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="empty-row">No se encontraron resultados</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
-                </>
+                </div>
             )}
 
-            {/* --- VISTA FORMULARIO --- */}
+            {/* VISTA: FORMULARIO */}
             {view === 'form' && (
-                <div className="form-card">
-                    <div className="form-header-container">
-                        <button className="btn-secondary" onClick={() => setView('list')}>
-                            <ArrowLeft size={18} /> Regresar
-                        </button>
-                        
-                        <div className="form-title-wrapper">
-                            <h2>{isEditing ? 'Modificar Usuario' : 'Nuevo Usuario'}</h2>
-                            <div className="title-underline"></div>
+                <div className="form-center-wrapper fade-in-up">
+                    <div className="form-box">
+                        <div className="form-top-bar">
+                            <button className="btn-back-circle" onClick={() => setView('list')} title="Volver">
+                                <ArrowLeft size={24} />
+                            </button>
+                            <div className="form-headings">
+                                <h2>{isEditing ? 'Editar Colaborador' : 'Registrar Colaborador'}</h2>
+                                <p>Complete la ficha técnica para conceder acceso al sistema.</p>
+                            </div>
                         </div>
-                        
-                        <div style={{width: '100px'}}></div> 
-                    </div>
 
-                    <form onSubmit={handleSave}>
-                        <div className="form-grid">
-                            <div className="input-group">
-                                <label>Nombre Completo</label>
-                                <br />
+                        <form onSubmit={handleSave} className="smart-form">
+                            <div className="form-row">
+                                <div className="input-field-container">
+                                    <label className="field-label">
+                                        <User size={18} className="label-icon"/> Nombre Completo
+                                    </label>
+                                    <input 
+                                        type="text" name="nombre" 
+                                        required className="modern-input"
+                                        value={formData.nombre || ''} 
+                                        onChange={handleInputChange} 
+                                        placeholder="Ej: Roberto Gomez"
+                                    />
+                                </div>
                                 
-                                <input type="text" name="nombre" required value={formData.nombre || ''} onChange={handleInputChange} placeholder="Ingrese nombre completo"/>
+                                <div className="input-field-container">
+                                    <label className="field-label">
+                                        <Mail size={18} className="label-icon"/> Correo Institucional
+                                    </label>
+                                    <input 
+                                        type="email" name="email" 
+                                        required className="modern-input"
+                                        value={formData.email || ''} 
+                                        onChange={handleInputChange} 
+                                        placeholder="usuario@inamhi.gob.ec"
+                                    />
+                                </div>
                             </div>
-                            <div className="input-group">
-                                <br />
-                                <label>Correo Institucional</label>
-                                <input type="email" name="email" required value={formData.email || ''} onChange={handleInputChange} placeholder="usuario@inamhi.ec"/>
-                            </div>
-                            <div className="input-group">
-                                <br />
-                                <label>Rol en el Sistema</label>
-                                <select name="rol" required value={formData.rol || ''} onChange={handleInputChange}>
-                                    <option value="">Seleccione...</option>
-                                    <option value="Técnico">Técnico</option>
-                                    <option value="Contratado">Contratado</option>
-                                </select>
-                            </div>
-                            <div className="input-group">
-                                <label>Dirección / Área</label>
-                                <br />
-                                <select name="area" required value={formData.area || ''} onChange={handleInputChange}>
-                                    <option value="">Seleccione...</option>
-                                    {DIRECCIONES_INAMHI.map((dir, idx) => <option key={idx} value={dir}>{dir}</option>)}
-                                </select>
+
+                            <div className="form-row">
+                                <div className="input-field-container">
+                                    <label className="field-label">
+                                        <Shield size={18} className="label-icon"/> Rol de Acceso
+                                    </label>
+                                    <div className="select-wrapper">
+                                        <select name="rol" required className="modern-select" value={formData.rol || ''} onChange={handleInputChange}>
+                                            <option value="">Seleccione...</option>
+                                            <option value="Técnico">Técnico</option>
+                                            <option value="Contratado">Contratado</option>
+                                            {/* OJO: Se eliminó la opción 'Administrador' para que no creen más admins */}
+                                        </select>
+                                        <ChevronRight size={18} className="select-arrow"/>
+                                    </div>
+                                </div>
+
+                                <div className="input-field-container">
+                                    <label className="field-label">
+                                        <Briefcase size={18} className="label-icon"/> Dirección / Área
+                                    </label>
+                                    <div className="select-wrapper">
+                                        <select name="area" required className="modern-select" value={formData.area || ''} onChange={handleInputChange}>
+                                            <option value="">Seleccione...</option>
+                                            {DIRECCIONES_INAMHI.map((dir, idx) => (
+                                                <option key={idx} value={dir}>{dir}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronRight size={18} className="select-arrow"/>
+                                    </div>
+                                </div>
                             </div>
                             
                             {!isEditing && (
-                                <div className="input-group full-width">
-                                    <label>Contraseña Temporal</label>
-                                    <br />
-                                    <input type="text" name="password" required placeholder="Asigne una contraseña inicial..." onChange={handleInputChange}/>
+                                <div className="form-row full">
+                                    <div className="input-field-container">
+                                        <label className="field-label">
+                                            <Key size={18} className="label-icon"/> Contraseña de Acceso
+                                        </label>
+                                        <input 
+                                            type="text" name="password" 
+                                            required className="modern-input"
+                                            placeholder="Ingrese la clave para el usuario..."
+                                            onChange={handleInputChange}
+                                        />
+                                        <span className="helper-text">Esta clave permitirá al usuario ingresar a su panel correspondiente.</span>
+                                    </div>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="form-actions">
-                            <button type="submit" className="btn-primary">
-                                <Save size={18}/> {isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* --- MODAL RESET PASSWORD --- */}
-            {showPassModal && selectedUserPass && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <button className="modal-close" onClick={() => setShowPassModal(false)}><X size={20}/></button>
-                        
-                        <div className="modal-header">
-                            <div className="modal-icon-box"><Key size={28}/></div>
-                            <h3>Restaurar Contraseña</h3>
-                            <p>Usuario: <strong>{selectedUserPass.nombre}</strong></p>
-                        </div>
-
-                        <div className="modal-body">
-                            <div className="input-group">
-                                <label>Nueva Contraseña</label>
-                                <br />
-                                <input type="text" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Escriba la nueva clave..."/>
+                            <div className="form-actions-bar">
+                                <button type="button" className="btn-cancelar" onClick={() => setView('list')}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn-guardar">
+                                    <Save size={20}/> {isEditing ? 'Guardar Cambios' : 'Registrar Usuario'}
+                                </button>
                             </div>
-                        </div>
-
-                        <button className="btn-primary full-btn" onClick={saveNewPassword}>
-                            <CheckCircle size={18}/> Confirmar Cambio
-                        </button>
+                        </form>
                     </div>
                 </div>
             )}
 
+            {/* MODAL PASSWORD */}
+            {showPassModal && selectedUserPass && (
+                <div className="modal-overlay-blur fade-in">
+                    <div className="modal-dialog scale-up">
+                        <button className="modal-close-x" onClick={() => setShowPassModal(false)}><X size={20}/></button>
+                        
+                        <div className="modal-header-centered">
+                            <div className="modal-icon-badge">
+                                <Key size={32} />
+                            </div>
+                            <h3>Cambio de Credenciales</h3>
+                            <p>Asignando nueva clave para: <br/><strong>{selectedUserPass.nombre}</strong></p>
+                        </div>
+
+                        <div className="modal-content-body">
+                            <div className="input-field-container">
+                                <label className="field-label" style={{justifyContent:'center'}}>Nueva Contraseña</label>
+                                <input 
+                                    type="text" 
+                                    className="modern-input center-text"
+                                    autoFocus 
+                                    value={newPassword} 
+                                    onChange={(e) => setNewPassword(e.target.value)} 
+                                    placeholder="••••••••"
+                                />
+                            </div>
+                        </div>
+
+                        <button className="btn-modal-primary" onClick={saveNewPassword}>
+                            Actualizar Contraseña
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
