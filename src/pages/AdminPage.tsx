@@ -253,7 +253,7 @@ const AdminPage = () => {
                             <img src={`https://ui-avatars.com/api/?name=${adminName}&background=4318FF&color=fff&bold=true`} alt="User" className="avatar-circle" />
                             <div className="profile-info">
                                 <span className="user-name">{adminName}</span>
-                                <span className="user-role">Control Total</span>
+                                <span className="user-role">Ing.Diego Gonzales</span>
                             </div>
                         </div>
                     </div>
@@ -261,7 +261,7 @@ const AdminPage = () => {
 
                 <div className="dashboard-hero">
                     <h1>Bienvenido de nuevo, {adminName} 👋</h1>
-                    <p>Resumen general del sistema de control y gestión (Datos en tiempo real)</p>
+                    <p>Resumen general del sistema de control y gestión </p>
                 </div>
 
                 <div className="widgets-grid">

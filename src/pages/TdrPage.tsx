@@ -30,7 +30,7 @@ const generateId = () => {
     return new Date().getTime() + Math.floor(Math.random() * 100000);
 };
 
-// --- INTERFACES ---
+// --- INTERFACES (UNIFICADAS CON TECNICO) ---
 interface FileItem { 
     id: number; 
     url: string; 
@@ -43,7 +43,7 @@ interface Support {
     fechaProgramada: string; 
     archivo: string | null; 
     nombreArchivo?: string; 
-    cumplimiento: 'Si' | 'No' | 'Pendiente'; 
+    cumplimiento: string; // Unificado a string
 }
 
 interface PaymentAct { 
@@ -68,12 +68,21 @@ export interface TDR {
     duracionUnidad: 'Dias' | 'Meses' | 'Anios'; 
     fechaFin: string; 
     
-    // Arrays para lógica interna
+    // 1. DOCUMENTACIÓN INICIAL (Arrays)
     archivosNecesidad: FileItem[];
     archivosTDR: FileItem[];
+
+    // 2. ARCHIVOS TÉCNICOS COMPARTIDOS (NUEVO)
+    archivoInformeTecnico: string | null;
+    archivoActaEntrega: string | null;
+    archivoProducto: string | null;
+    archivoVerificable: string | null;
+
+    // 3. SOPORTES
     soportes: Support[];
+
+    // 4. CIERRE
     actasPago: PaymentAct[];
-    
     fechaConformidad: string | null;
     archivoConformidad: string | null;
     nombreArchivoConformidad?: string;
@@ -104,7 +113,7 @@ const TdrPage = () => {
     const [currentSupportId, setCurrentSupportId] = useState<number | null>(null);
     const [modalSupportData, setModalSupportData] = useState<{ 
         archivo: File | null; 
-        cumplimiento: 'Si' | 'No' | 'Pendiente'; 
+        cumplimiento: string; 
     }>({ archivo: null, cumplimiento: 'Pendiente' });
 
     // ESTADOS ACTAS
@@ -125,7 +134,6 @@ const TdrPage = () => {
             const data = await res.json();
             
             // Mapeo de datos (MySQL -> React)
-            // Usamos 'any' en el parámetro t para evitar conflictos de tipos con la DB
             const lista = data.map((t: any) => ({
                 id: t.id,
                 numeroTDR: t.numero_tdr, 
@@ -139,9 +147,16 @@ const TdrPage = () => {
                 duracionCantidad: t.duracion_cantidad,
                 duracionUnidad: t.duracion_unidad,
                 
-                // Inicializamos arrays vacíos para que la UI no falle
+                // Inicializamos arrays y campos nulos
                 archivosNecesidad: [],
                 archivosTDR: [],
+                
+                // Inicializamos los 4 campos compartidos
+                archivoInformeTecnico: null,
+                archivoActaEntrega: null,
+                archivoProducto: null,
+                archivoVerificable: null,
+
                 soportes: [],
                 actasPago: [],
                 fechaConformidad: null,
@@ -229,7 +244,7 @@ const TdrPage = () => {
                 if (res.ok) {
                     alert("TDR Creado en Servidor");
                     registrarHistorial('Creación', `Nuevo TDR: ${formData.numeroTDR}`);
-                    cargarTDRs(); // Recargar lista
+                    cargarTDRs(); 
                     setView('list');
                     setFormData({ duracionCantidad: 1, duracionUnidad: 'Meses' });
                 } else {
@@ -237,9 +252,7 @@ const TdrPage = () => {
                 }
 
             } else if (view === 'edit' && formData.id) {
-                // Simulación visual por ahora (falta ruta PUT en backend)
                 alert("Edición pendiente de configurar ruta PUT en backend.");
-                // Actualizamos localmente para que veas el cambio
                 const updatedList = tdrList.map(t => t.id === formData.id ? { ...t, ...formData } as TDR : t);
                 setTdrList(updatedList);
                 setView('list');
@@ -253,11 +266,7 @@ const TdrPage = () => {
     const handleDeleteTDR = async (id: number) => {
         if(window.confirm("¿Eliminar TDR?")) {
             try {
-                // Intentamos eliminar en el servidor
-                // Si no has creado la ruta DELETE en node, esto fallará, pero el catch lo manejará
                 await fetch(`/api/tdr/${id}`, { method: 'DELETE' });
-                
-                // Actualizamos visualmente
                 setTdrList(tdrList.filter(t => t.id !== id));
                 registrarHistorial('Eliminación', `TDR eliminado ID: ${id}`);
             } catch (error) {
@@ -268,7 +277,6 @@ const TdrPage = () => {
 
     const updateTdrInList = (updated: TDR, msg?: string) => {
         setSelectedTdr(updated);
-        // Actualizamos localmente para que la UI fluya (archivos, soportes, etc)
         setTdrList(tdrList.map(t => t.id === updated.id ? updated : t));
         if (msg) registrarHistorial('Edición', msg);
     };
@@ -281,7 +289,6 @@ const TdrPage = () => {
             url: URL.createObjectURL(file), 
             nombre: file.name 
         };
-        // Nota: TypeScript puede quejarse aquí si selectedTdr[field] es undefined, por eso la inicialización arriba es importante
         const currentFiles = selectedTdr[field] || [];
         updateTdrInList({ ...selectedTdr, [field]: [...currentFiles, newFile] }, `Archivo agregado a ${field}`);
     };
@@ -292,9 +299,17 @@ const TdrPage = () => {
         updateTdrInList({ ...selectedTdr, [field]: currentFiles.filter(f => f.id !== fileId) });
     };
 
-    const handleFileUploadSingle = (field: 'archivoConformidad', file: File | undefined) => {
+    // Función Genérica para subir archivos únicos (Conformidad + Los 4 compartidos)
+    const handleFileUploadSingle = (field: keyof TDR, file: File | undefined) => {
         if(!selectedTdr || !file) return;
-        updateTdrInList({ ...selectedTdr, [field]: URL.createObjectURL(file), nombreArchivoConformidad: file.name }, "Informe conformidad subido");
+        
+        let extraData = {};
+        // Si es el de conformidad, guardamos también el nombre por separado si lo usamos
+        if (field === 'archivoConformidad') {
+            extraData = { nombreArchivoConformidad: file.name };
+        }
+
+        updateTdrInList({ ...selectedTdr, [field]: URL.createObjectURL(file), ...extraData }, `${field} actualizado`);
     };
 
     const handleRemoveFileSingle = () => {
@@ -309,13 +324,11 @@ const TdrPage = () => {
         const nuevos: Support[] = [];
         let fechaBase = new Date(scheduleParams.fechaInicio);
         fechaBase = new Date(fechaBase.valueOf() + fechaBase.getTimezoneOffset() * 60000);
-        
         const baseId = generateId(); 
 
         for (let i = 0; i < scheduleParams.cantidad; i++) {
             const nuevaFecha = new Date(fechaBase);
             nuevaFecha.setMonth(fechaBase.getMonth() + (i * scheduleParams.intervalo));
-            
             nuevos.push({ 
                 id: baseId + i, 
                 numero: `Soporte ${selectedTdr.soportes.length + i + 1}`, 
@@ -334,7 +347,7 @@ const TdrPage = () => {
             if (s.id === currentSupportId) {
                 let newUrl = s.archivo, newName = s.nombreArchivo;
                 if (modalSupportData.archivo) { newUrl = URL.createObjectURL(modalSupportData.archivo); newName = modalSupportData.archivo.name; }
-                return { ...s, archivo: newUrl, nombreArchivo: newName, cumplimiento: modalSupportData.cumplimiento as any };
+                return { ...s, archivo: newUrl, nombreArchivo: newName, cumplimiento: modalSupportData.cumplimiento };
             } return s;
         });
         updateTdrInList({ ...selectedTdr, soportes: updatedSoportes }, "Estado soporte actualizado");
@@ -622,19 +635,174 @@ const TdrPage = () => {
                         <button className={`tab-btn ${activeTab===4?'active':''}`} onClick={()=>setActiveTab(4)}>4. Cierre</button>
                     </div>
                     <div className="tab-content-container">
-                        {activeTab === 1 && (<div className="form-grid">{(['archivosNecesidad', 'archivosTDR'] as const).map(f => (<div className="input-block" key={f}><label>{f==='archivosNecesidad'?'Necesidad':'TDR Firmado'}</label><div className="multiple-files-container">{selectedTdr[f].map(x=>(<div key={x.id} className="uploaded-file-card"><span style={{flex:1}}>{x.nombre}</span><button className="btn-icon danger" onClick={()=>handleRemoveMultipleFile(f,x.id)}><Trash2 size={16}/></button></div>))}<div className="file-upload-block"><button className="btn-secondary" onClick={()=>document.getElementById(`file-${f}`)?.click()}><Plus size={16}/> Agregar</button><input id={`file-${f}`} type="file" hidden onChange={e=>handleAddMultipleFiles(f,e.target.files?.[0])}/></div></div></div>))}</div>)}
                         
-                        {activeTab === 2 && (<div><div className="generator-bar"><div className="generator-title"><Repeat size={20}/><span>Agregar Soportes</span></div><div className="generator-controls"><div className="input-mini"><label>Cantidad</label><input type="number" value={scheduleParams.cantidad} onChange={e=>setScheduleParams({...scheduleParams, cantidad:+e.target.value})}/></div><div className="input-mini"><label>Cada (Meses)</label><input type="number" value={scheduleParams.intervalo} onChange={e=>setScheduleParams({...scheduleParams, intervalo:+e.target.value})}/></div><div className="input-mini"><label>Inicio</label><input type="date" value={scheduleParams.fechaInicio} onChange={e=>setScheduleParams({...scheduleParams, fechaInicio:e.target.value})}/></div><button className="btn-primary" onClick={generateSchedule}><Plus size={18}/> Generar</button></div></div>
-                            <table className="mini-table"><thead><tr><th>Descripción</th><th>Fecha</th><th>Evidencia</th><th>Estado</th><th></th></tr></thead><tbody>{selectedTdr.soportes.map(s=>(<tr key={s.id}><td><b>{s.numero}</b></td><td>{s.fechaProgramada}</td><td>{s.archivo?<a href={s.archivo} target="_blank" className="file-link">Ver</a>:<button className="btn-secondary" onClick={()=>{setCurrentSupportId(s.id); setIsSupportModalOpen(true);}}><UploadCloud size={14}/></button>}</td><td><span className={`badge ${s.cumplimiento==='Si'?'badge-success':'badge-warning'}`} onClick={()=>{setCurrentSupportId(s.id);setIsSupportModalOpen(true);}} style={{cursor:'pointer'}}>{s.cumplimiento}</span></td><td><button className="btn-icon danger" onClick={()=>deleteSupport(s.id)}><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>)}
-                        
-                        {activeTab === 3 && (<div><div className="generator-bar"><div className="generator-title"><FileIcon size={20}/><span>Registrar Acta</span></div><div className="grid-3"><div className="input-block"><label>Fecha</label><input type="date" value={tempActa.fecha||''} onChange={e=>setTempActa({...tempActa, fecha:e.target.value})}/></div><div className="input-block"><label>Archivo</label><input type="file" id="acta-file-input" onChange={e=>setTempActaFile(e.target.files?.[0]||null)}/></div><div className="input-block"><label>Info</label><input placeholder="Ej: Acta 1" value={tempActa.numero||''} onChange={e=>setTempActa({...tempActa, numero:e.target.value})}/></div></div><button className="btn-primary" onClick={addActa}><UploadCloud size={18}/> Subir</button></div><div className="timeline-container">{selectedTdr.actasPago.map(a=>(<div key={a.id} className="timeline-item"><div className="timeline-dot"/><div className="timeline-content"><div><strong>{a.numero}</strong> <small>{a.fecha}</small></div><button className="btn-icon danger" onClick={()=>deleteActa(a.id)}><Trash2 size={16}/></button></div></div>))}</div></div>)}
+                        {/* PESTAÑA 1: DOCUMENTACIÓN (Archivos Multiples + 4 Compartidos) */}
+                        {activeTab === 1 && (
+                            <div className="form-grid">
+                                {/* Archivos Multiples Existentes */}
+                                {(['archivosNecesidad', 'archivosTDR'] as const).map(f => (
+                                    <div className="input-block" key={f}>
+                                        <label>{f==='archivosNecesidad'?'Necesidad':'TDR Firmado'}</label>
+                                        <div className="multiple-files-container">
+                                            {selectedTdr[f].map(x=>(
+                                                <div key={x.id} className="uploaded-file-card">
+                                                    <span style={{flex:1}}>{x.nombre}</span>
+                                                    <button className="btn-icon danger" onClick={()=>handleRemoveMultipleFile(f,x.id)}><Trash2 size={16}/></button>
+                                                </div>
+                                            ))}
+                                            <div className="file-upload-block">
+                                                <button className="btn-secondary" onClick={()=>document.getElementById(`file-${f}`)?.click()}><Plus size={16}/> Agregar</button>
+                                                <input id={`file-${f}`} type="file" hidden onChange={e=>handleAddMultipleFiles(f,e.target.files?.[0])}/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
 
-                        {activeTab === 4 && (<div><div className="generator-bar"><div className="generator-title"><ShieldCheck size={20}/><span>Informe Final</span></div><div className="form-grid" style={{marginBottom:0}}><div className="input-block"><label>Fecha Emisión</label><input type="date" value={selectedTdr.fechaConformidad||''} onChange={e=>setSelectedTdr({...selectedTdr, fechaConformidad:e.target.value})}/></div><div className="file-upload-block" style={{minHeight:'auto'}}>{selectedTdr.archivoConformidad?<div className="uploaded-file-card" style={{width:'100%'}}><CheckCircle size={20}/><span style={{flex:1}}>{selectedTdr.nombreArchivoConformidad}</span><button className="btn-icon danger" onClick={handleRemoveFileSingle}><Trash2 size={18}/></button></div>:<button className="btn-secondary" onClick={()=>document.getElementById('file-conf')?.click()}><UploadCloud size={18}/> Subir</button>}<input id="file-conf" type="file" hidden onChange={e=>handleFileUploadSingle('archivoConformidad', e.target.files?.[0])}/></div></div></div></div>)}
+                                {/* --- SECCIÓN NUEVA: Archivos Compartidos con Técnico --- */}
+                                <div className="divider-line" style={{gridColumn:'1/-1', margin:'20px 0', borderTop:'1px solid #eee'}}></div>
+                                <h4 style={{gridColumn:'1/-1', color:'#2563EB'}}>Archivos Técnicos Compartidos (Visible para Técnico)</h4>
+                                
+                                {[
+                                    { key: 'archivoInformeTecnico', label: 'Informe Técnico' },
+                                    { key: 'archivoActaEntrega', label: 'Acta Entrega-Recepción' },
+                                    { key: 'archivoProducto', label: 'Producto / Entregable' },
+                                    { key: 'archivoVerificable', label: 'Medio Verificable' }
+                                ].map((item: any) => (
+                                    <div className="input-block" key={item.key}>
+                                        <label>{item.label}</label>
+                                        <div className="file-upload-block" style={{minHeight:'auto'}}>
+                                            {(selectedTdr as any)[item.key] ? (
+                                                <div className="uploaded-file-card" style={{width:'100%'}}>
+                                                    <CheckCircle size={20} color="green"/>
+                                                    <span style={{flex:1}}>Archivo Cargado</span>
+                                                    <a href={(selectedTdr as any)[item.key]} target="_blank" className="btn-icon" title="Ver"><Eye size={18}/></a>
+                                                </div>
+                                            ) : (
+                                                <button className="btn-secondary" onClick={()=>document.getElementById(`admin-file-${item.key}`)?.click()}>
+                                                    <UploadCloud size={18}/> Subir
+                                                </button>
+                                            )}
+                                            <input id={`admin-file-${item.key}`} type="file" hidden 
+                                                onChange={e => handleFileUploadSingle(item.key, e.target.files?.[0])}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* PESTAÑA 2: SOPORTES */}
+                        {activeTab === 2 && (
+                            <div>
+                                <div className="generator-bar">
+                                    <div className="generator-title"><Repeat size={20}/><span>Agregar Soportes</span></div>
+                                    <div className="generator-controls">
+                                        <div className="input-mini"><label>Cantidad</label><input type="number" value={scheduleParams.cantidad} onChange={e=>setScheduleParams({...scheduleParams, cantidad:+e.target.value})}/></div>
+                                        <div className="input-mini"><label>Cada (Meses)</label><input type="number" value={scheduleParams.intervalo} onChange={e=>setScheduleParams({...scheduleParams, intervalo:+e.target.value})}/></div>
+                                        <div className="input-mini"><label>Inicio</label><input type="date" value={scheduleParams.fechaInicio} onChange={e=>setScheduleParams({...scheduleParams, fechaInicio:e.target.value})}/></div>
+                                        <button className="btn-primary" onClick={generateSchedule}><Plus size={18}/> Generar</button>
+                                    </div>
+                                </div>
+                                <table className="mini-table">
+                                    <thead><tr><th>Descripción</th><th>Fecha</th><th>Evidencia</th><th>Estado</th><th></th></tr></thead>
+                                    <tbody>
+                                        {selectedTdr.soportes.map(s=>(
+                                            <tr key={s.id}>
+                                                <td><b>{s.numero}</b></td>
+                                                <td>{s.fechaProgramada}</td>
+                                                <td>{s.archivo?<a href={s.archivo} target="_blank" className="file-link">Ver</a>:<button className="btn-secondary" onClick={()=>{setCurrentSupportId(s.id); setIsSupportModalOpen(true);}}><UploadCloud size={14}/></button>}</td>
+                                                <td><span className={`badge ${s.cumplimiento==='Si'?'badge-success':'badge-warning'}`} onClick={()=>{setCurrentSupportId(s.id);setIsSupportModalOpen(true);}} style={{cursor:'pointer'}}>{s.cumplimiento}</span></td>
+                                                <td><button className="btn-icon danger" onClick={()=>deleteSupport(s.id)}><Trash2 size={16}/></button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        
+                        {/* PESTAÑA 3: ACTAS */}
+                        {activeTab === 3 && (
+                            <div>
+                                <div className="generator-bar">
+                                    <div className="generator-title"><FileIcon size={20}/><span>Registrar Acta</span></div>
+                                    <div className="grid-3">
+                                        <div className="input-block"><label>Fecha</label><input type="date" value={tempActa.fecha||''} onChange={e=>setTempActa({...tempActa, fecha:e.target.value})}/></div>
+                                        <div className="input-block"><label>Archivo</label><input type="file" id="acta-file-input" onChange={e=>setTempActaFile(e.target.files?.[0]||null)}/></div>
+                                        <div className="input-block"><label>Info</label><input placeholder="Ej: Acta 1" value={tempActa.numero||''} onChange={e=>setTempActa({...tempActa, numero:e.target.value})}/></div>
+                                    </div>
+                                    <button className="btn-primary" onClick={addActa}><UploadCloud size={18}/> Subir</button>
+                                </div>
+                                <div className="timeline-container">
+                                    {selectedTdr.actasPago.map(a=>(
+                                        <div key={a.id} className="timeline-item">
+                                            <div className="timeline-dot"/>
+                                            <div className="timeline-content">
+                                                <div><strong>{a.numero}</strong> <small>{a.fecha}</small></div>
+                                                <button className="btn-icon danger" onClick={()=>deleteActa(a.id)}><Trash2 size={16}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PESTAÑA 4: CIERRE */}
+                        {activeTab === 4 && (
+                            <div>
+                                <div className="generator-bar">
+                                    <div className="generator-title"><ShieldCheck size={20}/><span>Informe Final</span></div>
+                                    <div className="form-grid" style={{marginBottom:0}}>
+                                        <div className="input-block">
+                                            <label>Fecha Emisión</label>
+                                            <input type="date" value={selectedTdr.fechaConformidad||''} onChange={e=>setSelectedTdr({...selectedTdr, fechaConformidad:e.target.value})}/>
+                                        </div>
+                                        <div className="file-upload-block" style={{minHeight:'auto'}}>
+                                            {selectedTdr.archivoConformidad ? (
+                                                <div className="uploaded-file-card" style={{width:'100%'}}>
+                                                    <CheckCircle size={20}/>
+                                                    <span style={{flex:1}}>{selectedTdr.nombreArchivoConformidad}</span>
+                                                    <button className="btn-icon danger" onClick={handleRemoveFileSingle}><Trash2 size={18}/></button>
+                                                </div>
+                                            ) : (
+                                                <button className="btn-secondary" onClick={()=>document.getElementById('file-conf')?.click()}><UploadCloud size={18}/> Subir</button>
+                                            )}
+                                            <input id="file-conf" type="file" hidden onChange={e=>handleFileUploadSingle('archivoConformidad', e.target.files?.[0])}/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
-            {isSupportModalOpen && (<div className="tdr-modal-overlay"><div className="tdr-modal-content"><div className="tdr-modal-header"><h3>Gestión Soporte</h3><button className="btn-icon" onClick={()=>setIsSupportModalOpen(false)}><X size={20}/></button></div><div className="tdr-modal-body"><div className="input-block"><label>Evidencia</label><input type="file" onChange={e=>setModalSupportData({...modalSupportData, archivo:e.target.files?.[0]||null})}/></div><div className="input-block" style={{marginTop:20}}><label>Cumplimiento</label><select value={modalSupportData.cumplimiento} onChange={e=>setModalSupportData({...modalSupportData, cumplimiento:e.target.value as any})}><option value="Pendiente">Pendiente</option><option value="Si">Si</option><option value="No">No</option></select></div></div><div className="form-button-container"><button className="btn-primary" onClick={saveSupportFromModal}>Guardar</button></div></div></div>)}
+            {isSupportModalOpen && (
+                <div className="tdr-modal-overlay">
+                    <div className="tdr-modal-content">
+                        <div className="tdr-modal-header">
+                            <h3>Gestión Soporte</h3>
+                            <button className="btn-icon" onClick={()=>setIsSupportModalOpen(false)}><X size={20}/></button>
+                        </div>
+                        <div className="tdr-modal-body">
+                            <div className="input-block">
+                                <label>Evidencia</label>
+                                <input type="file" onChange={e=>setModalSupportData({...modalSupportData, archivo:e.target.files?.[0]||null})}/>
+                            </div>
+                            <div className="input-block" style={{marginTop:20}}>
+                                <label>Cumplimiento</label>
+                                <select value={modalSupportData.cumplimiento} onChange={e=>setModalSupportData({...modalSupportData, cumplimiento:e.target.value as any})}>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="Si">Si</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="form-button-container">
+                            <button className="btn-primary" onClick={saveSupportFromModal}>Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -106,13 +106,37 @@ const ContratosPage = () => {
       }
   };
 
+
+  // Cargar documentos REALES desde la API cuando entras a ver detalles
   useEffect(() => {
       if (view === 'detail') {
-          // Carga simulada de documentos (esto también podría ir a API en el futuro)
-          const docs = localStorage.getItem('sistema_documentos');
-          if (docs) setAllDocuments(JSON.parse(docs));
+          const fetchDocumentos = async () => {
+              try {
+                  const res = await fetch('/api/documentos');
+                  if (res.ok) {
+                      const data = await res.json();
+                      
+                      // Mapeamos los datos para asegurar que coincidan con tu interfaz
+                      const docsFormateados = data.map((d: any) => ({
+                          id: d.id,
+                          // Aseguramos que lea contrato_id (BD) o contratoId (Frontend)
+                          contratoId: d.contrato_id || d.contratoId, 
+                          categoria: d.categoria,
+                          nombreArchivo: d.nombre_archivo || d.nombreArchivo,
+                          fechaSubida: d.fecha_subida ? d.fecha_subida.split('T')[0] : '',
+                          estado: d.estado || 'En Revisión'
+                      }));
+
+                      setAllDocuments(docsFormateados);
+                  }
+              } catch (error) {
+                  console.error("Error al cargar documentos:", error);
+              }
+          };
+          fetchDocumentos();
       }
   }, [view]);
+  
 
   const registrarHistorial = async (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
       try {
@@ -266,6 +290,25 @@ const ContratosPage = () => {
       document.body.removeChild(element);
   };
 
+// --- AGREGAR ESTA FUNCIÓN ANTES DEL RETURN ---
+  const handleDeleteDocument = async (docId: number, docName: string) => {
+      if (!window.confirm(`¿Seguro que quieres eliminar "${docName}" permanentemente?`)) return;
+
+      try {
+          const res = await fetch(`/api/documentos/${docId}`, { method: 'DELETE' });
+          if (res.ok) {
+              // Quitamos el archivo de la lista visualmente
+              setAllDocuments(prev => prev.filter(d => d.id !== docId));
+              alert("Archivo eliminado.");
+          } else {
+              alert("Error del servidor al eliminar.");
+          }
+      } catch (error) {
+          console.error(error);
+          alert("Error de conexión.");
+      }
+  };
+  
   return (
     <div className="contratos-container fade-in">
       
@@ -275,7 +318,7 @@ const ContratosPage = () => {
           <header className="page-header">
             <div>
               <h1>GESTIÓN DE CONTRATOS</h1>
-              <p>Módulo de Búsqueda, Filtrado y Auditoría (MySQL)</p>
+              <p>Módulo de Búsqueda, Filtrado y Auditoría</p>
             </div>
             <button className="btn-primary" onClick={handleCreateClick}>
               <Plus size={20} /> Nuevo Contrato
@@ -530,9 +573,18 @@ const ContratosPage = () => {
                                         {file.nombreArchivo}
                                     </span>
                                   </div>
-                                  <button onClick={() => handleDownload(file.nombreArchivo)} title="Descargar" style={{background:'none', border:'none', cursor:'pointer', color:'#059669'}}>
-                                    <Download size={18} />
-                                  </button>
+                                  <div style={{display:'flex', gap:'5px'}}>
+    {/* Botón Descargar original */}
+    <button onClick={() => handleDownload(file.nombreArchivo)} title="Descargar" style={{background:'none', border:'none', cursor:'pointer', color:'#059669'}}>
+        <Download size={18} />
+    </button>
+    
+    {/* NUEVO: Botón Eliminar */}
+    <button onClick={() => handleDeleteDocument(file.id, file.nombreArchivo)} title="Eliminar" style={{background:'none', border:'none', cursor:'pointer', color:'#EF4444'}}>
+        <Trash2 size={18} />
+    </button>
+</div>
+
                               </div>
                           ))
                       ) : (

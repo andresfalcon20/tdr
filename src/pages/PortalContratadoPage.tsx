@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     Upload, LogOut, CheckCircle, 
-    FileText, File, Plus 
+    FileText, File, Plus, AlertCircle 
 } from 'lucide-react';
 import '../styles/PortalStyles.css'; 
 
@@ -30,68 +30,173 @@ const PortalContratadoPage = () => {
     const [user, setUser] = useState<Usuario | null>(null);
     const [myContract, setMyContract] = useState<Contrato | null>(null);
     const [documents, setDocuments] = useState<Documento[]>([]);
+    const [loading, setLoading] = useState(true);
     
-    // 1. Carga de Datos
+    // 1. CARGA DE DATOS: CONECTADO A BASE DE DATOS
     useEffect(() => {
-        const storedName = localStorage.getItem('userName');
-        const storedRole = localStorage.getItem('role');
+        const cargarDatosPortal = async () => {
+            const storedName = localStorage.getItem('userName');
+            const storedEmail = localStorage.getItem('userEmail');
 
-        if (!storedName || !storedRole) { navigate('/login'); return; }
+            if (!storedName) { 
+                navigate('/login'); 
+                return; 
+            }
 
-        const usersDB: Usuario[] = JSON.parse(localStorage.getItem('sistema_usuarios') || '[]');
-        const contratosDB: Contrato[] = JSON.parse(localStorage.getItem('sistema_contratos') || '[]');
+            try {
+                // A. Obtenemos TODOS los contratos de la BD
+                const resContratos = await fetch('/api/contratos');
+                // B. Obtenemos TODOS los documentos de la BD
+                const resDocs = await fetch('/api/documentos');
+                
+                if (resContratos.ok) {
+                    const contratosRaw = await resContratos.json();
 
-        const foundUser = usersDB.find(u => u.nombre === storedName);
-        const foundContract = contratosDB.find(c => c.nombreProfesional === storedName);
+                    // B. Buscamos el contrato que pertenezca a este usuario (por Nombre exacto)
+                    // Nota: En la BD el campo viene como snake_case: 'nombre_profesional'
+                    const foundContractRaw = contratosRaw.find((c: any) => 
+                        c.nombre_profesional === storedName
+                    );
 
-        if (foundUser) setUser(foundUser);
-        if (foundContract) {
-            setMyContract(foundContract);
-            const storedDocs = localStorage.getItem('sistema_documentos');
-            const allDocs: Documento[] = storedDocs ? JSON.parse(storedDocs) : [];
-            setDocuments(allDocs.filter(d => d.contratoId === foundContract.id));
-        }
+                    // Establecemos el Usuario (basado en lo que tenemos del login)
+                    setUser({
+                        id: 0, 
+                        nombre: storedName,
+                        email: storedEmail || 'Usuario',
+                        rol: 'Contratado'
+                    });
+
+                    if (foundContractRaw) {
+                        // C. Mapeamos el contrato encontrado
+                        const contratoFormateado: Contrato = {
+                            id: foundContractRaw.id,
+                            numeroContrato: foundContractRaw.numero_contrato,
+                            nombreProfesional: foundContractRaw.nombre_profesional,
+                            adminContrato: foundContractRaw.admin_contrato,
+                            fechaInicio: foundContractRaw.fecha_inicio ? foundContractRaw.fecha_inicio.split('T')[0] : '',
+                            fechaFin: foundContractRaw.fecha_fin ? foundContractRaw.fecha_fin.split('T')[0] : '',
+                            estado: foundContractRaw.estado || 'Activo'
+                        };
+                        setMyContract(contratoFormateado);
+
+                        // D. Procesamos los documentos si la petición fue exitosa
+                        if (resDocs.ok) {
+                            const allDocs = await resDocs.json();
+                            
+                            // Filtramos solo los documentos de ESTE contrato
+                            // Manejamos comparación de ID como string para evitar errores de tipo
+                            const myDocs = allDocs.filter((d: any) => 
+                                String(d.contrato_id) === String(foundContractRaw.id) || 
+                                String(d.contratoId) === String(foundContractRaw.id)
+                            ).map((d: any) => ({
+                                id: d.id,
+                                contratoId: d.contrato_id || d.contratoId,
+                                categoria: d.categoria,
+                                nombreArchivo: d.nombre_archivo || d.nombreArchivo,
+                                fechaSubida: d.fecha_subida ? d.fecha_subida.split('T')[0] : '',
+                                estado: d.estado || 'En Revisión'
+                            }));
+                            
+                            setDocuments(myDocs);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error conectando al portal:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        cargarDatosPortal();
     }, [navigate]);
 
-    // 2. Subida de Archivos
+    // 2. Subida de Archivos (AHORA SÍ GUARDA EN DB)
     const handleFileUpload = (categoria: string) => {
         if (!myContract) return;
         const input = document.createElement('input');
         input.type = 'file';
-        input.onchange = (e: Event) => {
+        input.onchange = async (e: Event) => {
             const target = e.target as HTMLInputElement;
             const file = target.files ? target.files[0] : null;
+            
             if (file && myContract) {
-                const newDoc: Documento = {
-                    id: Date.now(), contratoId: myContract.id, categoria: categoria,
-                    nombreArchivo: file.name, fechaSubida: new Date().toLocaleDateString(), estado: 'En Revisión'
+                // Preparamos objeto para enviar a la API
+                // Enviamos ambos formatos (snake y camel) para asegurar compatibilidad con tu server
+                const nuevoDocDB = {
+                    contratoId: myContract.id,
+                    contrato_id: myContract.id,
+                    categoria: categoria,
+                    nombreArchivo: file.name,
+                    nombre_archivo: file.name,
+                    fechaSubida: new Date().toISOString().split('T')[0], 
+                    fecha_subida: new Date().toISOString().split('T')[0],
+                    estado: 'En Revisión'
                 };
-                const updatedDocs = [...documents, newDoc];
-                setDocuments(updatedDocs);
-                
-                // Guardar en localStorage
-                const storedDocs = localStorage.getItem('sistema_documentos');
-                const allDocs: Documento[] = storedDocs ? JSON.parse(storedDocs) : [];
-                localStorage.setItem('sistema_documentos', JSON.stringify([...allDocs, newDoc]));
-                
-                alert(`Archivo cargado: ${file.name}`);
+
+                try {
+                    const response = await fetch('/api/documentos', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(nuevoDocDB)
+                    });
+
+                    if (response.ok) {
+                        const docGuardado = await response.json();
+                        
+                        // Actualizamos la vista con el documento real guardado
+                        const newDocView: Documento = {
+                            id: docGuardado.id || Date.now(),
+                            contratoId: myContract.id,
+                            categoria: categoria,
+                            nombreArchivo: file.name,
+                            fechaSubida: new Date().toLocaleDateString(),
+                            estado: 'En Revisión'
+                        };
+                        
+                        setDocuments(prev => [...prev, newDocView]);
+                        alert(`Archivo "${file.name}" subido y guardado correctamente.`);
+                    } else {
+                        alert("Error al guardar el archivo en la base de datos.");
+                    }
+                } catch (error) {
+                    console.error("Error subiendo archivo:", error);
+                    alert("Error de conexión al subir archivo.");
+                }
             }
         };
         input.click();
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('userName');
+        localStorage.clear();
         navigate('/login');
     };
+
+    if (loading) {
+        return (
+            <div className="portal-container" style={{display:'flex', justifyContent:'center', alignItems:'center'}}>
+                <div style={{background:'white', padding:'40px', borderRadius:'20px', textAlign:'center', boxShadow:'0 10px 30px rgba(0,0,0,0.1)'}}>
+                    <h2 style={{color:'#142169'}}>Cargando...</h2>
+                    <p style={{color:'#8F9BBA'}}>Verificando contrato en base de datos...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!user || !myContract) {
         return (
             <div className="portal-container" style={{display:'flex', justifyContent:'center', alignItems:'center'}}>
-                <div style={{background:'white', padding:'40px', borderRadius:'20px', textAlign:'center', boxShadow:'0 10px 30px rgba(0,0,0,0.1)'}}>
-                    <h2 style={{color:'#142169'}}>Cargando Portal...</h2>
-                    <p style={{color:'#8F9BBA'}}>Verificando contrato asignado...</p>
-                    <button onClick={handleLogout} className="btn-logout" style={{margin:'20px auto'}}>Cancelar</button>
+                <div style={{background:'white', padding:'40px', borderRadius:'20px', textAlign:'center', maxWidth:'500px', boxShadow:'0 10px 30px rgba(0,0,0,0.1)'}}>
+                    <div style={{color: '#EF4444', marginBottom: '15px'}}><AlertCircle size={40}/></div>
+                    <h2 style={{color:'#142169'}}>Acceso Restringido</h2>
+                    <p style={{color:'#64748B', marginBottom:'20px', lineHeight:'1.5'}}>
+                        Hola <strong>{localStorage.getItem('userName')}</strong>, no hemos encontrado un contrato activo vinculado a tu nombre en el sistema.
+                    </p>
+                    <p style={{fontSize:'0.9rem', color:'#94A3B8'}}>
+                        Solicita al Administrador que verifique que tu contrato tenga asignado exactamente tu nombre de usuario.
+                    </p>
+                    <button onClick={handleLogout} className="btn-logout" style={{margin:'20px auto', width:'100%', justifyContent:'center'}}>Volver al Login</button>
                 </div>
             </div>
         );
@@ -191,7 +296,7 @@ const PortalContratadoPage = () => {
                                             </button>
                                         </div>
 
-                                        {/* LISTA DE ARCHIVOS (LO QUE FALTABA) */}
+                                        {/* LISTA DE ARCHIVOS */}
                                         {isUploaded && (
                                             <div className="files-container">
                                                 {filesInCat.map(file => (

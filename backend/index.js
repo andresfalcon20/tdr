@@ -174,3 +174,13 @@ const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Backend corriendo en puerto ${PORT}`);
 });
+// En tu server.js
+app.get('/api/documentos', (req, res) => {
+   // Lógica para devolver documentos
+});
+
+app.post('/api/documentos', (req, res) => {
+   // Lógica para guardar el documento
+   console.log("Recibiendo archivo:", req.body);
+   res.json({ success: true, ...req.body }); // Respuesta de ejemplo
+});
