@@ -1,53 +1,82 @@
 import { useState, useEffect } from 'react';
-import { 
-    Plus, Search, Eye, FileText, ArrowLeft, DollarSign, CheckCircle, 
+import {
+    Plus, Search, Eye, FileText, ArrowLeft, DollarSign, CheckCircle,
     Briefcase, AlertTriangle, ShieldCheck, Save, UploadCloud,
     Users, Repeat, X, Pencil, Layers, User, Calendar, Trash2, Info, ChevronLeft, Clock
 } from 'lucide-react';
 import { registrarHistorialGlobal } from '../utils/historyService';
 import '../styles/TecnicoStyles.css';
 
-// --- HELPER PARA GENERAR IDs ÚNICOS ---
 const generateId = () => {
     return new Date().getTime() + Math.floor(Math.random() * 100000);
 };
 
-interface FileItem { 
-    id: number; 
-    url: string; 
-    nombre: string; 
+interface TDRResponse {
+    id: number;
+    numero_tdr: string;
+    objeto_contratacion: string;
+    tipo_proceso: string;
+    direccion_solicitante: string;
+    presupuesto: number;
+    responsable: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    duracion_cantidad: number;
+    duracion_unidad: 'Dias' | 'Meses' | 'Anios';
 }
 
-interface Support { 
-    id: number; 
-    numero: string; 
-    fechaProgramada: string; 
-    archivo: string | null; 
-    nombreArchivo?: string; 
-    cumplimiento: string; 
+interface ContratoResponse {
+    id: number;
+    numero_contrato: string;
+    nombre_profesional: string;
+    admin_contrato: string;
+    estado: string;
 }
 
-interface PaymentAct { 
-    id: number; 
-    numero: string; 
-    fecha: string; 
-    archivo: string | null; 
-    nombreArchivo?: string; 
+interface UsuarioResponse {
+    id: number;
+    nombre: string;
+    email: string;
+    rol: string;
+    area: string;
+}
+
+interface FileItem {
+    id: number;
+    url: string;
+    nombre: string;
+}
+
+interface Support {
+    id: number;
+    numero: string;
+    fechaProgramada: string;
+    archivo: string | null;
+    nombreArchivo?: string;
+    cumplimiento: string;
+}
+
+interface PaymentAct {
+    id: number;
+    numero: string;
+    fecha: string;
+    archivo: string | null;
+    nombreArchivo?: string;
 }
 
 export interface TDR {
-    id: number; 
-    numeroTDR: string; 
-    objetoContratacion: string; 
+    id: number;
+    numeroTDR: string;
+    objetoContratacion: string;
     tipoProceso: string;
-    direccionSolicitante: string; 
-    presupuesto: number; 
-    responsable: string; 
-    fechaInicio: string; 
-    duracionCantidad: number; 
-    duracionUnidad: 'Dias' | 'Meses' | 'Anios'; 
-    fechaFin: string; 
-    
+    direccionSolicitante: string;
+    presupuesto: number;
+    responsable: string;
+    fechaInicio: string;
+    duracionCantidad: number;
+    duracionUnidad: 'Dias' | 'Meses' | 'Anios';
+    fechaFin: string;
+
     // 1. DOCUMENTACIÓN INICIAL
     archivosNecesidad: FileItem[];
     archivosTDR: FileItem[]; // TDR Firmado
@@ -57,7 +86,7 @@ export interface TDR {
     archivoActaEntrega: string | null;
     archivoProducto: string | null;
     archivoVerificable: string | null;
-    
+
     // 3. SOPORTES
     soportes: Support[];
 
@@ -91,16 +120,16 @@ const FileCard = ({ title, fileUrl, onUpload }: { title: string, fileUrl: string
         <div className="dashed-header">{title}</div>
         <div className="dashed-body">
             {fileUrl ? (
-                <div className="file-loaded fade-in" style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'10px'}}>
+                <div className="file-loaded fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                     <div className="icon-circle success"><CheckCircle size={24} /></div>
-                    <span style={{color:'green', fontWeight:'bold', fontSize:'0.9rem'}}>Cargado Correctamente</span>
-                    <div style={{display:'flex', gap:'10px'}}>
-                        <a href={fileUrl} target="_blank" rel="noreferrer" className="btn-text-blue" style={{textDecoration:'none', display:'flex', alignItems:'center', gap:'5px'}}>
-                            <Eye size={14}/> Ver
+                    <span style={{ color: 'green', fontWeight: 'bold', fontSize: '0.9rem' }}>Cargado Correctamente</span>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <a href={fileUrl} target="_blank" rel="noreferrer" className="btn-text-blue" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Eye size={14} /> Ver
                         </a>
-                        <label className="btn-text-blue" style={{cursor:'pointer', display:'flex', alignItems:'center', gap:'5px'}}>
-                           <Pencil size={14} /> Editar
-                           <input type="file" hidden onChange={(e) => e.target.files && onUpload(e.target.files[0])} />
+                        <label className="btn-text-blue" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Pencil size={14} /> Editar
+                            <input type="file" hidden onChange={(e) => e.target.files && onUpload(e.target.files[0])} />
                         </label>
                     </div>
                 </div>
@@ -108,7 +137,7 @@ const FileCard = ({ title, fileUrl, onUpload }: { title: string, fileUrl: string
                 <div className="file-empty">
                     <div className="icon-circle empty"><UploadCloud size={24} /></div>
                     <span className="file-status-text">Pendiente</span>
-                    <label className="btn-add-white" style={{cursor:'pointer', marginTop:'10px'}}>
+                    <label className="btn-add-white" style={{ cursor: 'pointer', marginTop: '10px' }}>
                         Subir Archivo
                         <input type="file" hidden onChange={(e) => e.target.files && onUpload(e.target.files[0])} />
                     </label>
@@ -121,11 +150,11 @@ const FileCard = ({ title, fileUrl, onUpload }: { title: string, fileUrl: string
 const TecnicoPage = () => {
     const [currentModule, setCurrentModule] = useState<'TDR' | 'CONTRATOS' | 'CONTRATADOS'>('TDR');
     const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTdr, setSelectedTdr] = useState<TDR | null>(null);
     const [activeTab, setActiveTab] = useState(1);
-    
+
     const [formData, setFormData] = useState<Partial<TDR>>({});
     const [scheduleParams, setScheduleParams] = useState({ fechaInicio: '', cantidad: 1, intervalo: 1 });
     const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -137,16 +166,15 @@ const TecnicoPage = () => {
     const [contratosList, setContratosList] = useState<Contrato[]>([]);
     const [usuariosList, setUsuariosList] = useState<Usuario[]>([]);
 
-    // --- CARGAR DATOS ---
     const cargarDatos = async () => {
         try {
             if (currentModule === 'TDR') {
                 const res = await fetch('/api/tdr');
                 if (res.ok) {
                     const data = await res.json();
-                    const mapeados = data.map((t: any) => ({
+                    const mapeados = data.map((t: TDRResponse) => ({
                         id: t.id,
-                        numeroTDR: t.numero_tdr, 
+                        numeroTDR: t.numero_tdr,
                         objetoContratacion: t.objeto_contratacion,
                         tipoProceso: t.tipo_proceso,
                         direccionSolicitante: t.direccion_solicitante,
@@ -156,8 +184,6 @@ const TecnicoPage = () => {
                         fechaFin: t.fecha_fin ? t.fecha_fin.split('T')[0] : '',
                         duracionCantidad: t.duracion_cantidad || 1,
                         duracionUnidad: t.duracion_unidad || 'Meses',
-                        
-                        // Arrays y Archivos (Inicialización segura)
                         archivosNecesidad: [],
                         archivosTDR: [],
                         archivoInformeTecnico: null,
@@ -175,7 +201,7 @@ const TecnicoPage = () => {
                 const res = await fetch('/api/contratos');
                 if (res.ok) {
                     const data = await res.json();
-                    const mapeados = data.map((c: any) => ({
+                    const mapeados = data.map((c: ContratoResponse) => ({
                         id: c.id,
                         numeroContrato: c.numero_contrato,
                         nombreProfesional: c.nombre_profesional,
@@ -188,22 +214,22 @@ const TecnicoPage = () => {
                 const res = await fetch('/api/usuarios');
                 if (res.ok) {
                     const data = await res.json();
-                    setUsuariosList(data.filter((u: any) => u.rol === 'Contratado'));
+                    setUsuariosList(data.filter((u: UsuarioResponse) => u.rol === 'Contratado'));
                 }
             }
-        } catch (error) {
-            console.error("Error cargando datos:", error);
+        } catch (e) {
+            console.error("Error cargando datos:", e);
         }
     };
 
     useEffect(() => {
         cargarDatos();
-    }, [currentModule]);
+    }, [currentModule, cargarDatos]);
 
     const getDaysRemaining = (endDate: string) => {
-        if(!endDate) return 0;
+        if (!endDate) return 0;
         const diff = new Date(endDate).getTime() - new Date().getTime();
-        return Math.ceil(diff / (1000 * 60 * 60 * 24)); 
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
     };
 
     const getStatusBadge = (days: number) => {
@@ -216,11 +242,10 @@ const TecnicoPage = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // --- CREAR TDR ---
     const handleCreateTDR = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(!formData.numeroTDR || !formData.objetoContratacion || !formData.fechaInicio) return alert("Complete los campos obligatorios");
-        
+        if (!formData.numeroTDR || !formData.objetoContratacion || !formData.fechaInicio) return alert("Complete los campos obligatorios");
+
         const datosParaBD = {
             numeroTDR: formData.numeroTDR,
             objetoContratacion: formData.objetoContratacion,
@@ -245,7 +270,7 @@ const TecnicoPage = () => {
                 registrarHistorialGlobal('Creación', 'TDR', `Técnico creó el TDR: ${formData.numeroTDR}`, 'Técnico Responsable');
                 alert("TDR Registrado Exitosamente.");
                 cargarDatos();
-                setView('list'); 
+                setView('list');
                 setFormData({});
             } else {
                 alert("Error al guardar en la base de datos.");
@@ -259,23 +284,15 @@ const TecnicoPage = () => {
     // --- SUBIDA DE ARCHIVOS (GENÉRICA) ---
     const handleFileUpload = (field: keyof TDR, file: File) => {
         if (!selectedTdr) return;
-        // Simulación de URL local. En producción aquí va el FormData y fetch al backend.
-        const updatedTdr = { ...selectedTdr, [field]: URL.createObjectURL(file) }; 
-        
-        // Si es archivo de TDR firmado, lo guardamos en el array correspondiente para compatibilidad
-        if (field === 'archivosTDR' as any) { 
-             // Lógica especial si fuera array, pero simplificamos a string para visualización rápida
-        }
-
+        const updatedTdr = { ...selectedTdr, [field]: URL.createObjectURL(file) };
         setSelectedTdr(updatedTdr);
         setTdrList(tdrList.map(t => t.id === selectedTdr.id ? updatedTdr : t));
         registrarHistorialGlobal('Edición', 'TDR', `Carga de archivo (${field}) en TDR ${selectedTdr.numeroTDR}`, 'Técnico Responsable');
     };
 
-    // --- LÓGICA DE SOPORTES ---
     const generateSchedule = () => {
         if (!selectedTdr || !scheduleParams.fechaInicio || scheduleParams.cantidad < 1) return alert("Configure parámetros.");
-        
+
         const nuevosSoportes: Support[] = [];
         let fechaBase = new Date(scheduleParams.fechaInicio);
         fechaBase = new Date(fechaBase.valueOf() + fechaBase.getTimezoneOffset() * 60000);
@@ -285,10 +302,10 @@ const TecnicoPage = () => {
             const nuevaFecha = new Date(fechaBase);
             nuevaFecha.setMonth(fechaBase.getMonth() + (i * scheduleParams.intervalo));
             nuevosSoportes.push({
-                id: baseId + i, 
-                numero: `Mantenimiento ${selectedTdr.soportes.length + i + 1}`, 
+                id: baseId + i,
+                numero: `Mantenimiento ${selectedTdr.soportes.length + i + 1}`,
                 fechaProgramada: nuevaFecha.toISOString().split('T')[0],
-                archivo: null, 
+                archivo: null,
                 nombreArchivo: undefined,
                 cumplimiento: 'Pendiente'
             });
@@ -322,7 +339,7 @@ const TecnicoPage = () => {
     };
 
     const deleteSupport = (supportId: number) => {
-        if(!selectedTdr) return;
+        if (!selectedTdr) return;
         const updatedTdr = { ...selectedTdr, soportes: selectedTdr.soportes.filter(s => s.id !== supportId) };
         setSelectedTdr(updatedTdr);
         setTdrList(tdrList.map(t => t.id === selectedTdr.id ? updatedTdr : t));
@@ -331,7 +348,7 @@ const TecnicoPage = () => {
     return (
         <div className="tecnico-layout">
             <div className="tecnico-container">
-                
+
                 {/* --- NAVEGACIÓN SUPERIOR --- */}
                 {view === 'list' && (
                     <div className="nav-pills-wrapper fade-in">
@@ -346,8 +363,26 @@ const TecnicoPage = () => {
                                 <Users size={18} /> Ver Contratados
                             </button>
                         </div>
+                        
+                        <button className="Btn">
+  
+  <div className="sign"><svg viewBox="0 0 512 512"><path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path></svg></div>
+  
+  <div className="text">Logout</div>
+</button>
+
                     </div>
+                    
                 )}
+
+
+
+
+
+
+
+
+
 
                 {/* MODULO TDR */}
                 {currentModule === 'TDR' && (
@@ -360,12 +395,12 @@ const TecnicoPage = () => {
                                 </header>
 
                                 <div className="stats-grid">
-                                    <div className="stat-card"><h3><Briefcase size={18}/> Mis Procesos</h3><div className="number">{tdrList.length}</div></div>
-                                    <div className="stat-card warning"><h3><AlertTriangle size={18}/> Alertas Vencimiento</h3><div className="number">{tdrList.filter(t => { const d = getDaysRemaining(t.fechaFin); return d > 0 && d <= 90; }).length}</div></div>
-                                    <div className="stat-card danger"><h3><ShieldCheck size={18}/> Vencidos</h3><div className="number">{tdrList.filter(t => getDaysRemaining(t.fechaFin) < 0).length}</div></div>
+                                    <div className="stat-card"><h3><Briefcase size={18} /> Mis Procesos</h3><div className="number">{tdrList.length}</div></div>
+                                    <div className="stat-card warning"><h3><AlertTriangle size={18} /> Alertas Vencimiento</h3><div className="number">{tdrList.filter(t => { const d = getDaysRemaining(t.fechaFin); return d > 0 && d <= 90; }).length}</div></div>
+                                    <div className="stat-card danger"><h3><ShieldCheck size={18} /> Vencidos</h3><div className="number">{tdrList.filter(t => getDaysRemaining(t.fechaFin) < 0).length}</div></div>
                                 </div>
 
-                                <div className="search-bar"><Search size={18} color="#64748B"/><input type="text" placeholder="Buscar por TDR o Objeto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                                <div className="search-bar"><Search size={18} color="#64748B" /><input type="text" placeholder="Buscar por TDR o Objeto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
 
                                 <div className="white-panel">
                                     <div className="table-container">
@@ -380,8 +415,8 @@ const TecnicoPage = () => {
                                                         return (
                                                             <tr key={tdr.id}>
                                                                 <td className="highlight-text">{tdr.numeroTDR}</td><td>{tdr.objetoContratacion}</td><td>{tdr.direccionSolicitante}</td>
-                                                                <td style={{fontWeight:'bold'}}>{days}</td><td>{getStatusBadge(days)}</td>
-                                                                <td><button className="btn-icon" onClick={() => { setSelectedTdr(tdr); setView('detail'); }}><Eye size={18}/></button></td>
+                                                                <td style={{ fontWeight: 'bold' }}>{days}</td><td>{getStatusBadge(days)}</td>
+                                                                <td><button className="btn-icon" onClick={() => { setSelectedTdr(tdr); setView('detail'); }}><Eye size={18} /></button></td>
                                                             </tr>
                                                         );
                                                     })
@@ -404,31 +439,31 @@ const TecnicoPage = () => {
                                     <form onSubmit={handleCreateTDR} className="smart-form">
                                         <div className="form-row">
                                             <div className="input-field-container">
-                                                <label className="field-label"><FileText size={16} className="label-icon"/> Número TDR</label>
-                                                <input className="modern-input" type="text" name="numeroTDR" required onChange={handleInputChange} placeholder="Ej: TDR-2025-001"/>
+                                                <label className="field-label"><FileText size={16} className="label-icon" /> Número TDR</label>
+                                                <input className="modern-input" type="text" name="numeroTDR" required onChange={handleInputChange} placeholder="Ej: TDR-2025-001" />
                                             </div>
                                             <div className="input-field-container">
-                                                <label className="field-label"><Layers size={16} className="label-icon"/> Tipo de Proceso</label>
+                                                <label className="field-label"><Layers size={16} className="label-icon" /> Tipo de Proceso</label>
                                                 <div className="select-wrapper"><select className="modern-select" name="tipoProceso" onChange={handleInputChange}><option>Seleccione...</option><option>Ínfima cuantía</option><option>Catálogo electrónico</option><option>Régimen especial</option></select></div>
                                             </div>
                                         </div>
                                         <div className="form-row full">
-                                            <div className="input-field-container"><label className="field-label"><Briefcase size={16} className="label-icon"/> Dirección Solicitante</label><div className="select-wrapper"><select className="modern-select" name="direccionSolicitante" onChange={handleInputChange}><option value="">Seleccione...</option>{DIRECCIONES_INAMHI.map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                                            <div className="input-field-container"><label className="field-label"><Briefcase size={16} className="label-icon" /> Dirección Solicitante</label><div className="select-wrapper"><select className="modern-select" name="direccionSolicitante" onChange={handleInputChange}><option value="">Seleccione...</option>{DIRECCIONES_INAMHI.map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
                                         </div>
                                         <div className="form-row full">
-                                            <div className="input-field-container"><label className="field-label"><FileText size={16} className="label-icon"/> Objeto Contractual</label><input className="modern-input" type="text" name="objetoContratacion" required onChange={handleInputChange}/></div>
+                                            <div className="input-field-container"><label className="field-label"><FileText size={16} className="label-icon" /> Objeto Contractual</label><input className="modern-input" type="text" name="objetoContratacion" required onChange={handleInputChange} /></div>
                                         </div>
                                         <div className="form-row">
-                                            <div className="input-field-container"><label className="field-label"><User size={16} className="label-icon"/> Responsable</label><input className="modern-input" type="text" name="responsable" onChange={handleInputChange}/></div>
-                                            <div className="input-field-container"><label className="field-label"><DollarSign size={16} className="label-icon"/> Presupuesto</label><input className="modern-input" type="number" name="presupuesto" onChange={handleInputChange} /></div>
+                                            <div className="input-field-container"><label className="field-label"><User size={16} className="label-icon" /> Responsable</label><input className="modern-input" type="text" name="responsable" onChange={handleInputChange} /></div>
+                                            <div className="input-field-container"><label className="field-label"><DollarSign size={16} className="label-icon" /> Presupuesto</label><input className="modern-input" type="number" name="presupuesto" onChange={handleInputChange} /></div>
                                         </div>
                                         <div className="form-row">
-                                            <div className="input-field-container"><label className="field-label"><Calendar size={16} className="label-icon"/> Fecha Inicio</label><input className="modern-input" type="date" name="fechaInicio" required onChange={handleInputChange} /></div>
-                                            <div className="input-field-container"><label className="field-label"><Calendar size={16} className="label-icon"/> Fecha Fin</label><input className="modern-input" type="date" name="fechaFin" required onChange={handleInputChange} /></div>
+                                            <div className="input-field-container"><label className="field-label"><Calendar size={16} className="label-icon" /> Fecha Inicio</label><input className="modern-input" type="date" name="fechaInicio" required onChange={handleInputChange} /></div>
+                                            <div className="input-field-container"><label className="field-label"><Calendar size={16} className="label-icon" /> Fecha Fin</label><input className="modern-input" type="date" name="fechaFin" required onChange={handleInputChange} /></div>
                                         </div>
                                         <div className="form-actions-bar">
                                             <button type="button" className="btn-cancelar" onClick={() => setView('list')}>Cancelar</button>
-                                            <button type="submit" className="btn-guardar"><Save size={18}/> REGISTRAR TDR</button>
+                                            <button type="submit" className="btn-guardar"><Save size={18} /> REGISTRAR TDR</button>
                                         </div>
                                     </form>
                                 </div>
@@ -459,34 +494,29 @@ const TecnicoPage = () => {
                                     </div>
 
                                     <div className="admin-content-area">
-                                        
-                                        {/* TAB 1: DOCUMENTACIÓN INICIAL (Necesidad y TDR Firmado) */}
                                         {activeTab === 1 && (
                                             <div className="admin-grid-upload two-columns">
-                                                {/* Simulamos que 'archivosNecesidad' es un solo archivo para la vista simple del técnico, o usamos el array */}
-                                                <FileCard 
-                                                    title="INFORME DE NECESIDAD" 
-                                                    fileUrl={selectedTdr.archivosNecesidad.length > 0 ? selectedTdr.archivosNecesidad[0].url : null} 
+                                                <FileCard
+                                                    title="INFORME DE NECESIDAD"
+                                                    fileUrl={selectedTdr.archivosNecesidad.length > 0 ? selectedTdr.archivosNecesidad[0].url : null}
                                                     onUpload={(f) => {
                                                         // Lógica simulada para agregar al array
                                                         const newFile = { id: Date.now(), url: URL.createObjectURL(f), nombre: f.name };
                                                         const updated = { ...selectedTdr, archivosNecesidad: [...selectedTdr.archivosNecesidad, newFile] };
                                                         setSelectedTdr(updated);
-                                                    }} 
+                                                    }}
                                                 />
-                                                <FileCard 
-                                                    title="TDR FIRMADO" 
-                                                    fileUrl={selectedTdr.archivosTDR.length > 0 ? selectedTdr.archivosTDR[0].url : null} 
+                                                <FileCard
+                                                    title="TDR FIRMADO"
+                                                    fileUrl={selectedTdr.archivosTDR.length > 0 ? selectedTdr.archivosTDR[0].url : null}
                                                     onUpload={(f) => {
                                                         const newFile = { id: Date.now(), url: URL.createObjectURL(f), nombre: f.name };
                                                         const updated = { ...selectedTdr, archivosTDR: [...selectedTdr.archivosTDR, newFile] };
                                                         setSelectedTdr(updated);
-                                                    }} 
+                                                    }}
                                                 />
                                             </div>
                                         )}
-
-                                        {/* TAB 2: ARCHIVOS TÉCNICOS (LOS 4 COMPARTIDOS) */}
                                         {activeTab === 2 && (
                                             <div className="admin-grid-upload">
                                                 <FileCard title="INFORME TÉCNICO" fileUrl={selectedTdr.archivoInformeTecnico} onUpload={(f) => handleFileUpload('archivoInformeTecnico', f)} />
@@ -495,34 +525,32 @@ const TecnicoPage = () => {
                                                 <FileCard title="MEDIO VERIFICABLE" fileUrl={selectedTdr.archivoVerificable} onUpload={(f) => handleFileUpload('archivoVerificable', f)} />
                                             </div>
                                         )}
-
-                                        {/* TAB 3: SOPORTES (MANTENIMIENTOS) */}
                                         {activeTab === 3 && (
                                             <div>
                                                 <div className="generator-bar">
-                                                    <div style={{flex:1}}>
-                                                        <h4 style={{margin:'0 0 15px', color:'#1E293B', display:'flex', gap:'10px', alignItems:'start'}}><Repeat size={20} color="#2563EB"/> Crear Soporte</h4>
-                                                        <div style={{display:'flex', gap:'20px'}}>
-                                                            <div className="gen-input-group"><label>Cantidad</label><input type="number" min="1" value={scheduleParams.cantidad} onChange={(e) => setScheduleParams({...scheduleParams, cantidad: parseInt(e.target.value)})} /></div>
-                                                            <div className="gen-input-group"><label>Meses</label><input type="number" min="1" value={scheduleParams.intervalo} onChange={(e) => setScheduleParams({...scheduleParams, intervalo: parseInt(e.target.value)})} /></div>
-                                                            <div className="gen-input-group"><label>Inicio</label><input type="date" value={scheduleParams.fechaInicio} onChange={(e) => setScheduleParams({...scheduleParams, fechaInicio: e.target.value})} /></div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <h4 style={{ margin: '0 0 15px', color: '#1E293B', display: 'flex', gap: '10px', alignItems: 'start' }}><Repeat size={20} color="#2563EB" /> Crear Soporte</h4>
+                                                        <div style={{ display: 'flex', gap: '20px' }}>
+                                                            <div className="gen-input-group"><label>Cantidad</label><input type="number" min="1" value={scheduleParams.cantidad} onChange={(e) => setScheduleParams({ ...scheduleParams, cantidad: parseInt(e.target.value) })} /></div>
+                                                            <div className="gen-input-group"><label>Meses</label><input type="number" min="1" value={scheduleParams.intervalo} onChange={(e) => setScheduleParams({ ...scheduleParams, intervalo: parseInt(e.target.value) })} /></div>
+                                                            <div className="gen-input-group"><label>Inicio</label><input type="date" value={scheduleParams.fechaInicio} onChange={(e) => setScheduleParams({ ...scheduleParams, fechaInicio: e.target.value })} /></div>
                                                         </div>
                                                     </div>
-                                                    <button className="btn-primary" onClick={generateSchedule} style={{height:'45px'}}>Generar Fechas</button>
+                                                    <button className="btn-primary" onClick={generateSchedule} style={{ height: '45px' }}>Generar Fechas</button>
                                                 </div>
 
-                                                <div className="white-panel" style={{border:'none', boxShadow:'none', padding:0}}>
+                                                <div className="white-panel" style={{ border: 'none', boxShadow: 'none', padding: 0 }}>
                                                     <table className="mini-table">
                                                         <thead><tr><th>Descripción</th><th>Fecha</th><th>Evidencia</th><th>Estado</th><th>Acción</th></tr></thead>
                                                         <tbody>
-                                                            {selectedTdr.soportes.length === 0 ? (<tr><td colSpan={5} style={{textAlign:'center', padding:'30px', color:'#999'}}>No hay mantenimientos.</td></tr>) : (
-                                                                selectedTdr.soportes.sort((a,b) => new Date(a.fechaProgramada).getTime() - new Date(b.fechaProgramada).getTime()).map((sop, idx) => (
+                                                            {selectedTdr.soportes.length === 0 ? (<tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No hay mantenimientos.</td></tr>) : (
+                                                                selectedTdr.soportes.sort((a, b) => new Date(a.fechaProgramada).getTime() - new Date(b.fechaProgramada).getTime()).map((sop, idx) => (
                                                                     <tr key={idx}>
-                                                                        <td style={{fontWeight:600}}>{sop.numero}</td>
+                                                                        <td style={{ fontWeight: 600 }}>{sop.numero}</td>
                                                                         <td>{sop.fechaProgramada}</td>
-                                                                        <td>{sop.archivo ? <button className="btn-icon" style={{width:'30px', height:'30px'}} onClick={() => openSupportModal(sop)}><Pencil size={14}/></button> : <button className="btn-secondary" style={{padding:'5px 10px', fontSize:'0.8rem'}} onClick={() => openSupportModal(sop)}>Subir</button>}</td>
+                                                                        <td>{sop.archivo ? <button className="btn-icon" style={{ width: '30px', height: '30px' }} onClick={() => openSupportModal(sop)}><Pencil size={14} /></button> : <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => openSupportModal(sop)}>Subir</button>}</td>
                                                                         <td><span className={`badge ${sop.cumplimiento === 'Si' ? 'badge-success' : 'badge-warning'}`}>{sop.cumplimiento}</span></td>
-                                                                        <td><button className="btn-icon danger" style={{width:'30px', height:'30px'}} onClick={() => deleteSupport(sop.id)}><Trash2 size={14}/></button></td>
+                                                                        <td><button className="btn-icon danger" style={{ width: '30px', height: '30px' }} onClick={() => deleteSupport(sop.id)}><Trash2 size={14} /></button></td>
                                                                     </tr>
                                                                 ))
                                                             )}
@@ -531,52 +559,50 @@ const TecnicoPage = () => {
                                                 </div>
                                             </div>
                                         )}
-
-                                        {/* TAB 4: CIERRE Y ACTAS (SOLO LECTURA) */}
                                         {activeTab === 4 && (
                                             <div className="fade-in">
                                                 {/* Informe Final */}
-                                                <div className="dashed-upload-box" style={{marginBottom: '20px'}}>
+                                                <div className="dashed-upload-box" style={{ marginBottom: '20px' }}>
                                                     <div className="dashed-header">INFORME FINAL DE CONFORMIDAD</div>
                                                     <div className="dashed-body">
                                                         {selectedTdr.archivoConformidad ? (
                                                             <div className="file-loaded">
                                                                 <div className="icon-circle success"><CheckCircle size={24} /></div>
-                                                                <div style={{display:'flex', flexDirection:'column'}}>
-                                                                    <span style={{fontWeight:'bold', color:'#166534'}}>Documento Legalizado</span>
-                                                                    <span style={{fontSize:'0.85rem', color:'#64748B'}}>{selectedTdr.nombreArchivoConformidad || 'Informe.pdf'}</span>
+                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                    <span style={{ fontWeight: 'bold', color: '#166534' }}>Documento Legalizado</span>
+                                                                    <span style={{ fontSize: '0.85rem', color: '#64748B' }}>{selectedTdr.nombreArchivoConformidad || 'Informe.pdf'}</span>
                                                                 </div>
-                                                                <a href={selectedTdr.archivoConformidad} target="_blank" rel="noreferrer" className="btn-text-blue" style={{marginLeft:'auto'}}>
-                                                                    <Eye size={16}/> Visualizar
+                                                                <a href={selectedTdr.archivoConformidad} target="_blank" rel="noreferrer" className="btn-text-blue" style={{ marginLeft: 'auto' }}>
+                                                                    <Eye size={16} /> Visualizar
                                                                 </a>
                                                             </div>
                                                         ) : (
                                                             <div className="file-empty">
                                                                 <div className="icon-circle warning"><Clock size={24} /></div>
-                                                                <span style={{color:'#64748B'}}>Pendiente de carga por el Administrador</span>
+                                                                <span style={{ color: '#64748B' }}>Pendiente de carga por el Administrador</span>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 {/* Listado de Actas */}
-                                                <div className="section-header" style={{marginTop:'30px', marginBottom:'15px'}}>
-                                                    <h4 style={{color:'#1E293B', display:'flex', alignItems:'center', gap:'10px'}}>
-                                                        <FileText size={20} color="#2563EB"/> Actas Registradas
+                                                <div className="section-header" style={{ marginTop: '30px', marginBottom: '15px' }}>
+                                                    <h4 style={{ color: '#1E293B', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <FileText size={20} color="#2563EB" /> Actas Registradas
                                                     </h4>
                                                 </div>
-                                                <div className="white-panel" style={{padding:0, overflow:'hidden'}}>
+                                                <div className="white-panel" style={{ padding: 0, overflow: 'hidden' }}>
                                                     <table className="mini-table">
                                                         <thead><tr><th>Nro. Acta</th><th>Fecha</th><th>Archivo</th><th>Estado</th></tr></thead>
                                                         <tbody>
                                                             {(!selectedTdr.actasPago || selectedTdr.actasPago.length === 0) ? (
-                                                                <tr><td colSpan={4} style={{textAlign:'center', padding:'30px', color:'#999'}}>No hay actas registradas por el Administrador.</td></tr>
+                                                                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No hay actas registradas por el Administrador.</td></tr>
                                                             ) : (
                                                                 selectedTdr.actasPago.map((acta) => (
                                                                     <tr key={acta.id}>
-                                                                        <td style={{fontWeight:'bold'}}>{acta.numero}</td>
+                                                                        <td style={{ fontWeight: 'bold' }}>{acta.numero}</td>
                                                                         <td>{acta.fecha}</td>
-                                                                        <td>{acta.archivo ? <a href={acta.archivo} target="_blank" rel="noreferrer" className="btn-icon" title="Ver Acta"><Eye size={16}/></a> : <span style={{color:'#999'}}>-</span>}</td>
+                                                                        <td>{acta.archivo ? <a href={acta.archivo} target="_blank" rel="noreferrer" className="btn-icon" title="Ver Acta"><Eye size={16} /></a> : <span style={{ color: '#999' }}>-</span>}</td>
                                                                         <td><span className="badge badge-success">Cargado</span></td>
                                                                     </tr>
                                                                 ))
@@ -586,8 +612,6 @@ const TecnicoPage = () => {
                                                 </div>
                                             </div>
                                         )}
-
-                                        {/* TAB 5: DATOS (SOLO LECTURA) */}
                                         {activeTab === 5 && (
                                             <div className="smart-form">
                                                 <div className="readonly-banner">
@@ -612,34 +636,32 @@ const TecnicoPage = () => {
                     </>
                 )}
 
-                {/* OTROS MODULOS */}
                 {currentModule === 'CONTRATOS' && (
                     <div className="fade-in">
                         <header className="dashboard-header"><div><h1>Listado de Contratos</h1><p>Vista de consulta general</p></div>
-                        <button className="btn-secondary" onClick={() => setCurrentModule('TDR')}><ArrowLeft size={18} /> Volver al Panel</button>
+                            <button className="btn-secondary" onClick={() => setCurrentModule('TDR')}><ArrowLeft size={18} /> Volver al Panel</button>
                         </header>
-                        <div className="white-panel"><table className="custom-table"><thead><tr><th>Nro. Contrato</th><th>Profesional</th><th>Admin. Contrato</th><th>Estado</th></tr></thead><tbody>{contratosList.length === 0 ? (<tr><td colSpan={4} style={{textAlign:'center', padding:'40px', color:'#999'}}>No hay contratos.</td></tr>) : (contratosList.map(c => (<tr key={c.id}><td className="highlight-text">{c.numeroContrato}</td><td>{c.nombreProfesional}</td><td>{c.adminContrato}</td><td><span className="badge badge-success">{c.estado}</span></td></tr>)))}</tbody></table></div>
+                        <div className="white-panel"><table className="custom-table"><thead><tr><th>Nro. Contrato</th><th>Profesional</th><th>Admin. Contrato</th><th>Estado</th></tr></thead><tbody>{contratosList.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: '#999' }}>No hay contratos.</td></tr>) : (contratosList.map(c => (<tr key={c.id}><td className="highlight-text">{c.numeroContrato}</td><td>{c.nombreProfesional}</td><td>{c.adminContrato}</td><td><span className="badge badge-success">{c.estado}</span></td></tr>)))}</tbody></table></div>
                     </div>
                 )}
 
                 {currentModule === 'CONTRATADOS' && (
                     <div className="fade-in">
                         <header className="dashboard-header"><div><h1>Personal Contratado</h1><p>Directorio de profesionales</p></div>
-                        <button className="btn-secondary" onClick={() => setCurrentModule('TDR')}><ArrowLeft size={18} /> Volver al Panel</button>
+                            <button className="btn-secondary" onClick={() => setCurrentModule('TDR')}><ArrowLeft size={18} /> Volver al Panel</button>
                         </header>
-                        <div className="white-panel"><table className="custom-table"><thead><tr><th>Nombre</th><th>Email</th><th>Área Asignada</th></tr></thead><tbody>{usuariosList.length === 0 ? (<tr><td colSpan={3} style={{textAlign:'center', padding:'40px', color:'#999'}}>No hay personal.</td></tr>) : (usuariosList.map(u => (<tr key={u.id}><td style={{fontWeight:600}}>{u.nombre}</td><td>{u.email}</td><td>{u.area}</td></tr>)))}</tbody></table></div>
+                        <div className="white-panel"><table className="custom-table"><thead><tr><th>Nombre</th><th>Email</th><th>Área Asignada</th></tr></thead><tbody>{usuariosList.length === 0 ? (<tr><td colSpan={3} style={{ textAlign: 'center', padding: '40px', color: '#999' }}>No hay personal.</td></tr>) : (usuariosList.map(u => (<tr key={u.id}><td style={{ fontWeight: 600 }}>{u.nombre}</td><td>{u.email}</td><td>{u.area}</td></tr>)))}</tbody></table></div>
                     </div>
                 )}
 
-                {/* MODAL MANTENIMIENTOS */}
                 {isSupportModalOpen && (
                     <div className="modal-overlay">
                         <div className="modal-content">
-                            <div className="modal-header"><h3>Gestión de Mantenimiento</h3><button className="btn-icon" onClick={() => setIsSupportModalOpen(false)}><X size={20}/></button></div>
+                            <div className="modal-header"><h3>Gestión de Mantenimiento</h3><button className="btn-icon" onClick={() => setIsSupportModalOpen(false)}><X size={20} /></button></div>
                             <div className="smart-form">
-                                <div className="input-field-container"><label className="field-label">Evidencia</label><input type="file" className="modern-input" style={{paddingTop:'12px'}} onChange={(e) => setModalSupportData({...modalSupportData, archivo: e.target.files?.[0] || null})}/></div>
-                                <div className="input-field-container"><label className="field-label">Estado</label><select className="modern-select" value={modalSupportData.cumplimiento} onChange={(e) => setModalSupportData({...modalSupportData, cumplimiento: e.target.value})}><option value="Pendiente">Pendiente</option><option value="Si">Cumplido (Sí)</option><option value="No">No Cumplido</option></select></div>
-                                <div className="form-actions-bar" style={{marginTop:'20px'}}><button className="btn-cancelar" onClick={() => setIsSupportModalOpen(false)}>Cancelar</button><button className="btn-guardar" onClick={saveSupportFromModal}>Guardar</button></div>
+                                <div className="input-field-container"><label className="field-label">Evidencia</label><input type="file" className="modern-input" style={{ paddingTop: '12px' }} onChange={(e) => setModalSupportData({ ...modalSupportData, archivo: e.target.files?.[0] || null })} /></div>
+                                <div className="input-field-container"><label className="field-label">Estado</label><select className="modern-select" value={modalSupportData.cumplimiento} onChange={(e) => setModalSupportData({ ...modalSupportData, cumplimiento: e.target.value })}><option value="Pendiente">Pendiente</option><option value="Si">Cumplido (Sí)</option><option value="No">No Cumplido</option></select></div>
+                                <div className="form-actions-bar" style={{ marginTop: '20px' }}><button className="btn-cancelar" onClick={() => setIsSupportModalOpen(false)}>Cancelar</button><button className="btn-guardar" onClick={saveSupportFromModal}>Guardar</button></div>
                             </div>
                         </div>
                     </div>

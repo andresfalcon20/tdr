@@ -30,7 +30,6 @@ const generateId = () => {
     return new Date().getTime() + Math.floor(Math.random() * 100000);
 };
 
-// --- INTERFACES (UNIFICADAS CON TECNICO) ---
 interface FileItem { 
     id: number; 
     url: string; 
@@ -43,7 +42,7 @@ interface Support {
     fechaProgramada: string; 
     archivo: string | null; 
     nombreArchivo?: string; 
-    cumplimiento: string; // Unificado a string
+    cumplimiento: string;
 }
 
 interface PaymentAct { 
@@ -67,18 +66,12 @@ export interface TDR {
     duracionCantidad: number; 
     duracionUnidad: 'Dias' | 'Meses' | 'Anios'; 
     fechaFin: string; 
-    
-    // 1. DOCUMENTACIÓN INICIAL (Arrays)
     archivosNecesidad: FileItem[];
     archivosTDR: FileItem[];
-
-    // 2. ARCHIVOS TÉCNICOS COMPARTIDOS (NUEVO)
     archivoInformeTecnico: string | null;
     archivoActaEntrega: string | null;
     archivoProducto: string | null;
     archivoVerificable: string | null;
-
-    // 3. SOPORTES
     soportes: Support[];
 
     // 4. CIERRE
@@ -89,21 +82,16 @@ export interface TDR {
 }
 
 const TdrPage = () => {
-    // ESTADOS GENERALES
     const [view, setView] = useState<'list' | 'create' | 'detail' | 'edit'>('list');
     const [activeTab, setActiveTab] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTdr, setSelectedTdr] = useState<TDR | null>(null);
     const [filterType, setFilterType] = useState('Todos'); 
-    const [showFilterMenu, setShowFilterMenu] = useState(false); 
-
-    // FORMULARIO TDR
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [formData, setFormData] = useState<Partial<TDR>>({ 
         duracionCantidad: 1, 
         duracionUnidad: 'Meses' 
     });
-
-    // ESTADOS SOPORTES
     const [scheduleParams, setScheduleParams] = useState({ 
         fechaInicio: '', 
         cantidad: 1, 
@@ -115,26 +103,28 @@ const TdrPage = () => {
         archivo: File | null; 
         cumplimiento: string; 
     }>({ archivo: null, cumplimiento: 'Pendiente' });
-
-    // ESTADOS ACTAS
     const [tempActa, setTempActa] = useState<Partial<PaymentAct>>({});
     const [tempActaFile, setTempActaFile] = useState<File | null>(null);
-
-    // 1. LISTA PRINCIPAL (Inicia vacía)
     const [tdrList, setTdrList] = useState<TDR[]>([]);
-
-    // 2. CARGAR DESDE LA BASE DE DATOS AL INICIAR
-    useEffect(() => {
-        cargarTDRs();
-    }, []);
 
     const cargarTDRs = async () => {
         try {
             const res = await fetch('/api/tdr');
             const data = await res.json();
-            
-            // Mapeo de datos (MySQL -> React)
-            const lista = data.map((t: any) => ({
+            interface TDRResponse {
+                id: number;
+                numero_tdr: string;
+                objeto_contratacion: string;
+                tipo_proceso: string;
+                direccion_solicitante: string;
+                presupuesto: number;
+                responsable: string;
+                fecha_inicio: string;
+                fecha_fin: string;
+                duracion_cantidad: number;
+                duracion_unidad: 'Dias' | 'Meses' | 'Anios';
+            }
+            const lista = data.map((t: TDRResponse) => ({
                 id: t.id,
                 numeroTDR: t.numero_tdr, 
                 objetoContratacion: t.objeto_contratacion,
@@ -146,12 +136,8 @@ const TdrPage = () => {
                 fechaFin: t.fecha_fin ? t.fecha_fin.split('T')[0] : '',
                 duracionCantidad: t.duracion_cantidad,
                 duracionUnidad: t.duracion_unidad,
-                
-                // Inicializamos arrays y campos nulos
                 archivosNecesidad: [],
                 archivosTDR: [],
-                
-                // Inicializamos los 4 campos compartidos
                 archivoInformeTecnico: null,
                 archivoActaEntrega: null,
                 archivoProducto: null,
@@ -163,17 +149,19 @@ const TdrPage = () => {
                 archivoConformidad: null
             }));
             setTdrList(lista);
-        } catch (error) {
-            console.error("Error cargando TDRs:", error);
+        } catch (e) {
+            console.error("Error cargando TDRs:", e);
         }
     };
 
-    // --- ACCIÓN DE IMPRIMIR ---
+    useEffect(() => {
+        cargarTDRs();
+    }, []);
+
     const handlePrintClick = () => {
         generarReportePDF(tdrList);
     };
 
-    // --- HISTORIAL ---
     const registrarHistorial = async (accion: 'Creación' | 'Edición' | 'Eliminación', detalle: string) => {
         try {
             await fetch('/api/historial', {
@@ -189,7 +177,6 @@ const TdrPage = () => {
         } catch (e) { console.error("Error historial", e); }
     };
 
-    // --- CALCULADORA FECHAS ---
     useEffect(() => {
         if ((view === 'create' || view === 'edit') && formData.fechaInicio && formData.duracionCantidad) {
             const inicio = new Date(formData.fechaInicio);
@@ -215,7 +202,6 @@ const TdrPage = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // --- 3. GUARDAR EN BASE DE DATOS (CRUD) ---
     const handleSaveTDR = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.numeroTDR || !formData.fechaInicio || !formData.fechaFin) return alert("Complete campos obligatorios.");
@@ -257,19 +243,18 @@ const TdrPage = () => {
                 setTdrList(updatedList);
                 setView('list');
             }
-        } catch (error) {
+        } catch {
             alert("Error de conexión con el servidor");
         }
     };
 
-    // --- 4. ELIMINAR EN BASE DE DATOS ---
     const handleDeleteTDR = async (id: number) => {
         if(window.confirm("¿Eliminar TDR?")) {
             try {
                 await fetch(`/api/tdr/${id}`, { method: 'DELETE' });
                 setTdrList(tdrList.filter(t => t.id !== id));
                 registrarHistorial('Eliminación', `TDR eliminado ID: ${id}`);
-            } catch (error) {
+            } catch {
                 alert("Error al intentar eliminar en el servidor");
             }
         }
@@ -281,7 +266,6 @@ const TdrPage = () => {
         if (msg) registrarHistorial('Edición', msg);
     };
 
-    // --- ARCHIVOS ---
     const handleAddMultipleFiles = (field: 'archivosNecesidad' | 'archivosTDR', file: File | undefined) => {
         if(!selectedTdr || !file) return;
         const newFile: FileItem = { 
@@ -299,12 +283,9 @@ const TdrPage = () => {
         updateTdrInList({ ...selectedTdr, [field]: currentFiles.filter(f => f.id !== fileId) });
     };
 
-    // Función Genérica para subir archivos únicos (Conformidad + Los 4 compartidos)
     const handleFileUploadSingle = (field: keyof TDR, file: File | undefined) => {
         if(!selectedTdr || !file) return;
-        
         let extraData = {};
-        // Si es el de conformidad, guardamos también el nombre por separado si lo usamos
         if (field === 'archivoConformidad') {
             extraData = { nombreArchivoConformidad: file.name };
         }
@@ -317,7 +298,6 @@ const TdrPage = () => {
         updateTdrInList({ ...selectedTdr, archivoConformidad: null, nombreArchivoConformidad: undefined }, "Informe conformidad eliminado");
     };
 
-    // --- LOGICA SOPORTES ---
     const generateSchedule = () => {
         if (!selectedTdr || !scheduleParams.fechaInicio || scheduleParams.cantidad < 1) return alert("Configure parámetros.");
         
@@ -356,7 +336,6 @@ const TdrPage = () => {
     
     const deleteSupport = (id: number) => { if(selectedTdr) updateTdrInList({ ...selectedTdr, soportes: selectedTdr.soportes.filter(s => s.id !== id) }); };
 
-    // --- LOGICA ACTAS ---
     const addActa = () => {
         if(!selectedTdr || !tempActa.fecha || !tempActaFile) return alert("Fecha y Archivo obligatorios");
         
@@ -479,7 +458,6 @@ const TdrPage = () => {
                 </div>
             )}
 
-            {/* VISTA FORMULARIO (Crear / Editar) */}
             {(view === 'create' || view === 'edit') && (
                 <div className="form-center-wrapper fade-in-up">
                     <div className="form-box">
@@ -635,11 +613,8 @@ const TdrPage = () => {
                         <button className={`tab-btn ${activeTab===4?'active':''}`} onClick={()=>setActiveTab(4)}>4. Cierre</button>
                     </div>
                     <div className="tab-content-container">
-                        
-                        {/* PESTAÑA 1: DOCUMENTACIÓN (Archivos Multiples + 4 Compartidos) */}
                         {activeTab === 1 && (
                             <div className="form-grid">
-                                {/* Archivos Multiples Existentes */}
                                 {(['archivosNecesidad', 'archivosTDR'] as const).map(f => (
                                     <div className="input-block" key={f}>
                                         <label>{f==='archivosNecesidad'?'Necesidad':'TDR Firmado'}</label>
@@ -658,24 +633,23 @@ const TdrPage = () => {
                                     </div>
                                 ))}
 
-                                {/* --- SECCIÓN NUEVA: Archivos Compartidos con Técnico --- */}
                                 <div className="divider-line" style={{gridColumn:'1/-1', margin:'20px 0', borderTop:'1px solid #eee'}}></div>
                                 <h4 style={{gridColumn:'1/-1', color:'#2563EB'}}>Archivos Técnicos Compartidos (Visible para Técnico)</h4>
                                 
                                 {[
-                                    { key: 'archivoInformeTecnico', label: 'Informe Técnico' },
-                                    { key: 'archivoActaEntrega', label: 'Acta Entrega-Recepción' },
-                                    { key: 'archivoProducto', label: 'Producto / Entregable' },
-                                    { key: 'archivoVerificable', label: 'Medio Verificable' }
-                                ].map((item: any) => (
+                                    { key: 'archivoInformeTecnico' as const, label: 'Informe Técnico' },
+                                    { key: 'archivoActaEntrega' as const, label: 'Acta Entrega-Recepción' },
+                                    { key: 'archivoProducto' as const, label: 'Producto / Entregable' },
+                                    { key: 'archivoVerificable' as const, label: 'Medio Verificable' }
+                                ].map((item: { key: keyof TDR; label: string }) => (
                                     <div className="input-block" key={item.key}>
                                         <label>{item.label}</label>
                                         <div className="file-upload-block" style={{minHeight:'auto'}}>
-                                            {(selectedTdr as any)[item.key] ? (
+                                            {selectedTdr[item.key] ? (
                                                 <div className="uploaded-file-card" style={{width:'100%'}}>
                                                     <CheckCircle size={20} color="green"/>
                                                     <span style={{flex:1}}>Archivo Cargado</span>
-                                                    <a href={(selectedTdr as any)[item.key]} target="_blank" className="btn-icon" title="Ver"><Eye size={18}/></a>
+                                                    <a href={String(selectedTdr[item.key] || '')} target="_blank" className="btn-icon" title="Ver"><Eye size={18}/></a>
                                                 </div>
                                             ) : (
                                                 <button className="btn-secondary" onClick={()=>document.getElementById(`admin-file-${item.key}`)?.click()}>
@@ -690,8 +664,6 @@ const TdrPage = () => {
                                 ))}
                             </div>
                         )}
-                        
-                        {/* PESTAÑA 2: SOPORTES */}
                         {activeTab === 2 && (
                             <div>
                                 <div className="generator-bar">
@@ -719,8 +691,6 @@ const TdrPage = () => {
                                 </table>
                             </div>
                         )}
-                        
-                        {/* PESTAÑA 3: ACTAS */}
                         {activeTab === 3 && (
                             <div>
                                 <div className="generator-bar">
@@ -745,8 +715,6 @@ const TdrPage = () => {
                                 </div>
                             </div>
                         )}
-
-                        {/* PESTAÑA 4: CIERRE */}
                         {activeTab === 4 && (
                             <div>
                                 <div className="generator-bar">
@@ -790,7 +758,7 @@ const TdrPage = () => {
                             </div>
                             <div className="input-block" style={{marginTop:20}}>
                                 <label>Cumplimiento</label>
-                                <select value={modalSupportData.cumplimiento} onChange={e=>setModalSupportData({...modalSupportData, cumplimiento:e.target.value as any})}>
+                                <select value={modalSupportData.cumplimiento} onChange={e=>setModalSupportData({...modalSupportData, cumplimiento: e.target.value as 'Pendiente' | 'Si' | 'No'})}>
                                     <option value="Pendiente">Pendiente</option>
                                     <option value="Si">Si</option>
                                     <option value="No">No</option>
